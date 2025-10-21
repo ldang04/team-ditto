@@ -3,3 +3,7 @@
 # Dependencies
 node_modules
 .env
+gcp-service-account.json
+
+# Dist 
+dist/
