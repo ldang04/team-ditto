@@ -6,6 +6,10 @@ export const ProjectModel = {
     return await supabase.from("projects").select("*").eq("user_id", userId);
   },
 
+  async getById(id: string) {
+    return await supabase.from("projects").select("*").eq("id", id).single();
+  },
+
   async create(project: Project) {
     return await supabase.from("projects").insert(project).select().single();
   },
