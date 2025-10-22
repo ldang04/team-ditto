@@ -8,13 +8,26 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
 import { VertexAI } from "@google-cloud/vertexai";
+import { ContentModel } from "../models/ContentModel";
 import "dotenv/config";
 
 const router = Router();
-router.use(authMiddleware);
+router.use(authMiddleware); 
 
-// POST /api/generate
-// Generate new assets from user-inputted text, image, or audio prompts
+/**
+ * CITATION: JSDoc generated using AI. 
+ * Generates content using Vertex AI based on provided parameters
+ * 
+ * @route POST /api/generate
+ * @param {Object} req.body.project_id - The ID of the project
+ * @param {string} req.body.prompt - The user's content generation prompt
+ * @param {string} [req.body.media_type=text] - Type of media to generate (e.g. text, image)
+ * @param {Object} [req.body.style_preferences={}] - Style preferences for content generation
+ * @param {string} [req.body.target_audience=general] - Target audience for the content
+ * @returns {Object} Response containing the generated content
+ * @throws {400} If project_id or prompt is missing
+ * @throws {500} If content generation fails
+ */
 router.post("/generate", async (req, res) => {
   try {
     const { 
@@ -42,6 +55,7 @@ router.post("/generate", async (req, res) => {
     });
 
     // Build context-aware prompt with brand memory
+    // CITATION: used AI to generate prompt for content generation
     const enhancedPrompt = `
       Generate ${media_type} content for a marketing campaign with the following requirements:
       
@@ -64,20 +78,29 @@ router.post("/generate", async (req, res) => {
 
     const generatedContent = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated";
     
-    // TODO: Save generated content to database
-    // TODO: Apply brand consistency checks
-    // TODO: Generate multiple variants
-    // TODO: Store in media bucket if needed
+    // Save generated content to database
+    const { data, error } = await ContentModel.create({
+      project_id,
+      media_type,
+      media_url: "", // TODO: add media url when file storage is implemented
+      text_content: generatedContent,
+    });
+    
+    if (error) {
+      console.error("Database save error:", error);
+      return res.status(500).json({ 
+        error: "Failed to save content to database",
+        details: error.message 
+      });
+    }
     
     res.json({
       success: true,
+      content_id: data.id,
       project_id,
       media_type,
       generated_content: generatedContent,
       timestamp: new Date().toISOString(),
-      // TODO: Add media_url when file storage is implemented
-      // TODO: Add brand_consistency_score
-      // TODO: Add variant_rankings
     });
 
   } catch (error: any) {
@@ -93,7 +116,10 @@ router.post("/generate", async (req, res) => {
 // Returns
 //
 router.post("/validate", async (req, res) => {
-  // TODO:
+    // TODO: Apply brand consistency checks
+    // TODO: Score content quality
+    // TODO: Suggest improvements
+
   res.json({ message: "validate endpoint not implemented yet" });
 });
 
@@ -101,7 +127,10 @@ router.post("/validate", async (req, res) => {
 // Returns
 //
 router.post("/rank", async (req, res) => {
-  // TODO:
+  // TODO: generate multiple variants
+  // TODO: Rank by brand consistency
+  // TODO: Rank by quality scores
+  // TODO: Return ordered results
   res.json({ message: "rank endpoint not implemented yet" });
 });
 
