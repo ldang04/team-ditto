@@ -12,7 +12,7 @@
     "test": "jest --runInBand",
     "test:unit": "jest --runInBand --coverage",
     "test:unit:junit": "jest --runInBand --coverage --reporters=default --reporters=jest-junit",
-    "coverage:summary": "nyc report --reporter=text-summary",
+    "coverage:summary": "jest --coverage --coverageReporters=text-summary",
     "api:test": "newman run postman/collection.json -e postman/env.json -r cli,htmlextra --reporter-htmlextra-export reports/postman-report.html",
     "reports:all": "npm run test:unit:junit && npm run api:test && npm run coverage:summary && node scripts/snapshot-coverage.js"
   },
