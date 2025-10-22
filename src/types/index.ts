@@ -46,3 +46,11 @@ export type Theme = {
   tags: string[];
   inspirations: string[];
 };
+
+export type Embedding = {
+  id?: string;
+  content_id: string;
+  embedding: number[];
+  text_content: string;
+  created_at?: string;
+};
