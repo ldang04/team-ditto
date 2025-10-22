@@ -9,6 +9,9 @@ import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
 import { VertexAI } from "@google-cloud/vertexai";
 import { ContentModel } from "../models/ContentModel";
+import { ProjectModel } from "../models/ProjectModel";
+import { ThemeModel } from "../models/ThemeModel";
+import { embedTextAndAttach } from "../utils";
 import "dotenv/config";
 
 const router = Router();
@@ -24,6 +27,7 @@ router.use(authMiddleware);
  * @param {string} [req.body.media_type=text] - Type of media to generate (e.g. text, image)
  * @param {Object} [req.body.style_preferences={}] - Style preferences for content generation
  * @param {string} [req.body.target_audience=general] - Target audience for the content
+ * @param {number} [req.body.variantCount=3] - Number of content variants to generate
  * @returns {Object} Response containing the generated content
  * @throws {400} If project_id or prompt is missing
  * @throws {500} If content generation fails
@@ -35,12 +39,29 @@ router.post("/generate", async (req, res) => {
       prompt, 
       media_type = "text", // default
       style_preferences = {},
-      target_audience = "general"
+      target_audience = "general",
+      variantCount = 3
     } = req.body;
 
     if (!project_id || !prompt) {
       return res.status(400).json({ 
         error: "Missing required fields: project_id and prompt" 
+      });
+    }
+
+    // Fetch project data for brand memory
+    const { data: project, error: projectError } = await ProjectModel.getById(project_id);
+    if (projectError || !project) {
+      return res.status(404).json({ 
+        error: "Project not found" 
+      });
+    }
+
+    // Fetch theme data for brand memory
+    const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
+    if (themeError || !theme) {
+      return res.status(404).json({ 
+        error: "Theme not found" 
       });
     }
 
@@ -57,15 +78,28 @@ router.post("/generate", async (req, res) => {
     // Build context-aware prompt with brand memory
     // CITATION: used AI to generate prompt for content generation
     const enhancedPrompt = `
-      Generate ${media_type} content for a marketing campaign with the following requirements:
+      Generate ${variantCount} different variants of ${media_type} content for a marketing campaign with the following requirements:
       
-      Project Context: ${project_id}
-      User Prompt: ${prompt}
-      Media Type: ${media_type}
-      Target Audience: ${target_audience}
-      Style Preferences: ${JSON.stringify(style_preferences)}
+      PROJECT CONTEXT:
+      - Project Name: ${project.name}
+      - Description: ${project.description}
+      - Goals: ${project.goals}
+      - Customer Type: ${project.customer_type}
       
-      Create branded, consistent content that aligns with the project's theme and goals.
+      THEME & BRAND:
+      - Theme Name: ${theme.name}
+      - Font: ${theme.font}
+      - Tags: ${theme.tags.join(', ')}
+      - Inspirations: ${theme.inspirations.join(', ')}
+      
+      GENERATION REQUIREMENTS:
+      - User Prompt: ${prompt}
+      - Media Type: ${media_type}
+      - Target Audience: ${target_audience}
+      - Style Preferences: ${JSON.stringify(style_preferences)}
+      
+      Create ${variantCount} distinct, branded content variants that align with the project's theme and goals.
+      Each variant should be clearly separated with "---VARIANT_START---" and "---VARIANT_END---" markers.
       Return the content in a format suitable for ${media_type} generation.
     `;
 
@@ -76,30 +110,63 @@ router.post("/generate", async (req, res) => {
       }],
     });
 
-    const generatedContent = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated";
+    const generatedText = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated";
     
-    // Save generated content to database
-    const { data, error } = await ContentModel.create({
-      project_id,
-      media_type,
-      media_url: "", // TODO: add media url when file storage is implemented
-      text_content: generatedContent,
-    });
+    // parse variants from the response - use regex to separate content.
+    const variantRegex = /---VARIANT_START---(.*?)---VARIANT_END---/gs;
+    const matches = generatedText.match(variantRegex);
     
-    if (error) {
-      console.error("Database save error:", error);
+    let variants = [];
+    if (matches && matches.length > 0) {
+      // extract content from each variant
+      variants = matches.map(match => 
+        match.replace(/---VARIANT_START---/g, '').replace(/---VARIANT_END---/g, '').trim()
+      );
+    } else {
+      // fallback: split by common separators or use the whole text
+      const fallbackVariants = generatedText.split('\n\n').filter(v => v.trim().length > 0);
+      variants = fallbackVariants.length > 0 ? fallbackVariants : [generatedText];
+    }
+
+    // ensure we don't exceed the requested variant count
+    variants = variants.slice(0, variantCount);
+
+    // save each variant to database and generate embeddings
+    const savedVariants = [];
+    for (const variantContent of variants) {
+      const { data, error } = await ContentModel.create({
+        project_id,
+        media_type,
+        media_url: "", // TODO: add media url when file storage is implemented
+        text_content: variantContent,
+      });
+      
+      if (error) {
+        console.error("Database save error:", error);
+        continue; // if a particular variant fails, continue with others
+      }
+
+      // generate and store embeddings
+      await embedTextAndAttach(data.id, variantContent);
+
+      savedVariants.push({
+        content_id: data.id,
+        generated_content: variantContent
+      });
+    }
+
+    if (savedVariants.length === 0) {
       return res.status(500).json({ 
-        error: "Failed to save content to database",
-        details: error.message 
+        error: "Failed to save any content variants to database"
       });
     }
     
     res.json({
       success: true,
-      content_id: data.id,
+      variants: savedVariants,
       project_id,
       media_type,
-      generated_content: generatedContent,
+      variant_count: savedVariants.length,
       timestamp: new Date().toISOString(),
     });
 

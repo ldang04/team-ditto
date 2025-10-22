@@ -1,0 +1,283 @@
+{
+  "testData": {
+    "baseUrl": "http://localhost:3000",
+    "apiKey": "b1f5b167bfb363f1b43daf784485d4af487b9201d924f4cd6b716997247e8b33",
+    "clientId": "0c79328a-ecc0-462d-a90e-338dc2b35553",
+    "userId": "533dc312-379e-46ec-aa59-520c1b289c88",
+    "themeId": "6bfb873c-1227-46ec-8f87-741550d9eed7",
+    "projectId": "f51d5060-f23f-4742-8830-bc8ea84d24f1"
+  },
+  
+  "headers": {
+    "validAuth": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer b1f5b167bfb363f1b43daf784485d4af487b9201d924f4cd6b716997247e8b33"
+    },
+    "invalidAuth": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer invalid-key-12345"
+    },
+    "missingAuth": {
+      "Content-Type": "application/json"
+    },
+    "malformedAuth": {
+      "Content-Type": "application/json",
+      "Authorization": "InvalidFormat"
+    }
+  },
+
+  "generateEndpoint": {
+    "validRequests": {
+      "basicRequest": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "prompt": "Create a compelling social media post about our new product launch"
+      },
+      "fullRequest": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "prompt": "Create a compelling social media post about our new product launch",
+        "media_type": "text",
+        "style_preferences": {
+          "tone": "professional",
+          "length": "medium"
+        },
+        "target_audience": "tech professionals",
+        "variantCount": 3
+      },
+      "emailSubjectRequest": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "prompt": "Write a short email subject line for our newsletter",
+        "variantCount": 2
+      },
+      "minimalRequest": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "prompt": "Test prompt"
+      }
+    },
+    
+    "invalidRequests": {
+      "missingProjectId": {
+        "prompt": "Test prompt"
+      },
+      "missingPrompt": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1"
+      },
+      "missingBoth": {},
+      "invalidProjectId": {
+        "project_id": "invalid-project-id",
+        "prompt": "Test prompt"
+      },
+      "emptyProjectId": {
+        "project_id": "",
+        "prompt": "Test prompt"
+      },
+      "emptyPrompt": {
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "prompt": ""
+      }
+    },
+
+    "expectedResponses": {
+      "successResponse": {
+        "success": true,
+        "variants": [
+          {
+            "content_id": "string",
+            "generated_content": "string"
+          }
+        ],
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1",
+        "media_type": "text",
+        "variant_count": 2,
+        "timestamp": "2025-10-22T02:44:37.486Z"
+      },
+      "missingFieldsError": {
+        "error": "Missing required fields: project_id and prompt"
+      },
+      "projectNotFoundError": {
+        "error": "Project not found"
+      },
+      "missingApiKeyError": {
+        "error": "Missing API key"
+      },
+      "invalidApiKeyError": {
+        "error": "Invalid API key"
+      }
+    }
+  },
+
+  "setupEndpoints": {
+    "createClient": {
+      "url": "/api/clients/create",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "name": "Test Client"
+      },
+      "expectedResponse": {
+        "message": "Client created successfully",
+        "client_id": "string",
+        "api_key": "string"
+      }
+    },
+    
+    "createUser": {
+      "url": "/api/users/create",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {api_key}"
+      },
+      "body": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "client_id": "{client_id}"
+      },
+      "expectedResponse": {
+        "id": "string",
+        "client_id": "string",
+        "name": "Test User",
+        "email": "test@example.com",
+        "created_at": "string"
+      }
+    },
+    
+    "createTheme": {
+      "url": "/api/themes/create",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {api_key}"
+      },
+      "body": {
+        "user_id": "{user_id}",
+        "name": "Modern Tech Theme",
+        "font": "Inter",
+        "tags": ["modern", "tech", "clean"],
+        "inspirations": ["Apple", "Google", "Stripe"]
+      },
+      "expectedResponse": {
+        "id": "string",
+        "user_id": "string",
+        "name": "Modern Tech Theme",
+        "font": "Inter",
+        "tags": ["modern", "tech", "clean"],
+        "inspirations": ["Apple", "Google", "Stripe"],
+        "created_at": "string"
+      }
+    },
+    
+    "createProject": {
+      "url": "/api/projects/create",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {api_key}"
+      },
+      "body": {
+        "user_id": "{user_id}",
+        "theme_id": "{theme_id}",
+        "client_id": "{client_id}",
+        "name": "Test Marketing Campaign",
+        "description": "A test campaign for our new product launch",
+        "goals": "Increase brand awareness and drive sales",
+        "customer_type": "tech-savvy professionals"
+      },
+      "expectedResponse": {
+        "id": "string",
+        "user_id": "string",
+        "theme_id": "string",
+        "name": "Test Marketing Campaign",
+        "description": "A test campaign for our new product launch",
+        "goals": "Increase brand awareness and drive sales",
+        "customer_type": "tech-savvy professionals",
+        "created_at": "string",
+        "client_id": "string"
+      }
+    }
+  },
+
+  "testScenarios": {
+    "happyPath": {
+      "description": "Complete flow from client creation to content generation",
+      "steps": [
+        "1. Create client",
+        "2. Create user with client_id",
+        "3. Create theme with user_id", 
+        "4. Create project with user_id and theme_id",
+        "5. Generate content with project_id"
+      ]
+    },
+    "errorHandling": {
+      "description": "Test all error conditions",
+      "scenarios": [
+        "Missing API key",
+        "Invalid API key", 
+        "Missing project_id",
+        "Missing prompt",
+        "Invalid project_id",
+        "Non-existent project_id"
+      ]
+    },
+    "variantGeneration": {
+      "description": "Test different variant counts",
+      "testCases": [
+        {
+          "variantCount": 1,
+          "expectedVariantCount": 1
+        },
+        {
+          "variantCount": 3,
+          "expectedVariantCount": 3
+        },
+        {
+          "variantCount": 5,
+          "expectedVariantCount": 5
+        }
+      ]
+    },
+    "brandMemory": {
+      "description": "Test that generated content reflects project and theme data",
+      "validation": [
+        "Content should reference project goals",
+        "Content should match theme tone (modern, tech, clean)",
+        "Content should target specified customer type",
+        "Content should reflect theme inspirations"
+      ]
+    }
+  },
+
+  "sampleGeneratedContent": {
+    "socialMediaPost": {
+      "variant1": "**Headline:** Elevate Your Workflow. Introducing [Product Name].\n\n**Body:** For the tech-savvy professional who demands efficiency and innovation, [Product Name] is here. Experience seamless integration, intelligent automation, and a design that's as intuitive as it is powerful. We've reimagined [key product benefit] to unlock your true potential. Discover a smarter way to work.\n\n**Call to Action:** Explore the future of productivity. Learn more and get early access at [link].\n\n#NewProduct #TechLaunch #[YourBrandName] #Innovation #Productivity",
+      "variant2": "**Headline:** Meet [Product Name]: Where Smart Meets Seamless.\n\n**Body:** Tired of clunky solutions? We engineered [Product Name] with you in mind – the discerning tech professional. Enjoy a clean, intuitive interface powered by cutting-edge technology. Streamline your [specific task or industry] with unparalleled speed and reliability. This isn't just a new product; it's your next competitive advantage.\n\n**Call to Action:** Ready to transform your [area of impact]? Visit [link] to see [Product Name] in action.\n\n#FutureOfWork #TechSolutions #SaaS #[YourBrandName]Launch #Efficiency"
+    },
+    "emailSubjects": {
+      "variant1": "Subject: Unlock Your Potential: The Future is Here.",
+      "variant2": "Subject: Meet [New Product Name]: Innovation, Redefined.",
+      "variant3": "Subject: Upgrade Your Workflow. Discover [New Product Name]."
+    }
+  },
+
+  "assertionHelpers": {
+    "responseStructure": {
+      "requiredFields": ["success", "variants", "project_id", "media_type", "variant_count", "timestamp"],
+      "variantStructure": ["content_id", "generated_content"],
+      "dataTypes": {
+        "success": "boolean",
+        "variants": "array",
+        "project_id": "string",
+        "media_type": "string", 
+        "variant_count": "number",
+        "timestamp": "string"
+      }
+    },
+    "contentValidation": {
+      "minLength": 10,
+      "maxLength": 2000,
+      "shouldContain": ["project context", "theme elements"],
+      "shouldNotContain": ["[ERROR]", "[PLACEHOLDER]"]
+    }
+  }
+}

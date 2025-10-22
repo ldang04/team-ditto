@@ -12,7 +12,6 @@ import themesRouter from "./routes/themeRoutes";
 import contentsRouter from "./routes/contentRoutes";
 import computationRouter from "./routes/computationRoutes";
 import { VertexAI } from "@google-cloud/vertexai";
-import "dotenv/config";
 
 const app = express();
 app.use(express.json());
