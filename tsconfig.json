@@ -10,9 +10,18 @@
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "skipLibCheck": true,
-    "typeRoots": ["./src/types", "./node_modules/@types"]
+    "typeRoots": ["./src/types", "./node_modules/@types"],
+    "resolveJsonModule": true
   },
+  "include": ["src/**/*"],
   "ts-node": {
     "esm": false
-  }
+  },
+  "exclude": [
+    "tests",
+    "coverage",
+    "reports",
+    "postman",
+    "dist"
+  ]
 }
