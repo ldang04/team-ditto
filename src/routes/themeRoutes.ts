@@ -1,9 +1,12 @@
 /**
  * routes/themeRoutes.ts
  *
- * This file defines the Express routes for ...
- * All routes are protected via API key middleware, ensuring multi-tenant isolation.
+ * Express router configuration for theme-related endpoints.
+ * Defines routes for managing theme operations including creation
+ * and retrieval. All routes require authentication via API key.
+ * Themes define visual and behavioral customization options for projects.
  *
+ * @module ThemeRoutes
  */
 import { Router } from "express";
 import { ThemeController } from "../controllers/ThemeController";
@@ -11,12 +14,27 @@ import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
 
+/**
+ * Apply authentication middleware to all theme routes
+ * Verifies API key and sets clientId in request
+ */
 router.use(authMiddleware);
 
-// Create theme
+/**
+ * Create a new theme for the authenticated client
+ *
+ * @route POST /themes/create
+ * @authentication Required - API Key
+ * @body {Object} theme - Theme information
+ */
 router.post("/themes/create", ThemeController.create);
 
-// List themes for authenticated client
+/**
+ * List all themes for the authenticated client
+ *
+ * @route GET /themes
+ * @authentication Required - API Key
+ */
 router.get("/themes", ThemeController.listByClient);
 
 export default router;

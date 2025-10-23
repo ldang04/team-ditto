@@ -1,50 +1,57 @@
+/**
+ * controllers/ContentController.ts
+ *
+ * Controller responsible for handling content-related API requests.
+ * Provides endpoints for retrieving generated contents
+ * linked to specific projects.
+ *
+ */
 import { Request, Response } from "express";
 import { ContentModel } from "../models/ContentModel";
-import { Content } from "../types";
+import { ServiceResponse } from "../types/serviceResponse";
+import { StatusCodes } from "http-status-codes";
+import { handleServiceResponse } from "../utils/httpHandlers";
 
 export const ContentController = {
   /**
-   * List all content for a given project.
-   * GET /contents/:project_id
+   * Retrieve all content records for a given project.
+   *
+   * @param req - Express Request containing `project_id` in params.
+   * @param res - Express Response used to send the result.
+   *
+   * @returns JSON response containing an array of content objects or an error message.
+   * @returns {Object} 200 - JSON response containing an array of content objects.
+   * @throws {400} If missing project_id.
+   * @throws {500} If an unexpected server error occurs.
+   *
    */
   async list(req: Request, res: Response) {
     try {
+      let serviceResponse;
       const { project_id } = req.params;
       if (!project_id) {
-        return res.status(400).json({ error: "Missing project_id" });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Missing project_id",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       const { data, error } = await ContentModel.listByProject(project_id);
 
       if (error) throw error;
 
-      res.status(200).json(data);
+      serviceResponse = ServiceResponse.success(
+        data,
+        "Retrieved contents",
+        StatusCodes.OK
+      );
+      return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  },
-
-  /**
-   * Create a new content record.
-   * POST /contents/create
-   */
-  async create(req: Request, res: Response) {
-    try {
-      const content: Content = req.body;
-
-      if (!content.project_id) {
-        return res
-          .status(400)
-          .json({ error: "Missing project_id in content body" });
-      }
-
-      const { data, error } = await ContentModel.create(content);
-
-      if (error || !data) throw error;
-
-      res.status(201).json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: "Internal Server Error" });
+      console.log(err);
+      const serviceResponse = ServiceResponse.failure(err);
+      return handleServiceResponse(serviceResponse, res);
     }
   },
 };

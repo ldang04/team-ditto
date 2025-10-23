@@ -1,9 +1,3 @@
-/**
- * utils.ts
- *
- * This file defines ...
- *
- */
 import crypto from "crypto";
 
 export function generateApiKey() {

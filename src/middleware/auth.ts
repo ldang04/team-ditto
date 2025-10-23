@@ -13,17 +13,26 @@
  *
  */
 import { Request, Response, NextFunction } from "express";
+import { ApiKeyModel } from "../models/ApiKeyModel";
 import bcrypt from "bcrypt";
-import { supabase } from "../config/supabaseClient";
+import { ServiceResponse } from "../types/serviceResponse";
+import { StatusCodes } from "http-status-codes";
+import { handleServiceResponse } from "../utils/httpHandlers";
 
 export async function authMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
+  let serviceResponse;
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing API key" });
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Missing API key",
+      StatusCodes.UNAUTHORIZED
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   const providedKey = header.split(" ")[1];
@@ -31,32 +40,34 @@ export async function authMiddleware(
   const prefix = providedKey.slice(0, 8);
 
   // Fetch the key record from Supabase using prefix with active status
-  const { data: keyRecord, error } = await supabase
-    .from("api_keys")
-    .select("*")
-    .eq("prefix", prefix)
-    .eq("active", true)
-    .single();
+  const { data: keyRecord, error } = await ApiKeyModel.list(prefix);
 
   // If key not found, deny access
-  if (error || !keyRecord) {
-    return res.status(403).json({ error: "Invalid API key" });
+  if (error || !keyRecord || !keyRecord.id) {
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Invalid API key",
+      StatusCodes.FORBIDDEN
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   // Compare the provided key with the stored hashed key
   const valid = await bcrypt.compare(providedKey, keyRecord.hashed_key);
   if (!valid) {
-    return res.status(403).json({ error: "Invalid API key" });
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Invalid API key",
+      StatusCodes.FORBIDDEN
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   // Attach client ID to request object for use in downstream routes
   req.clientId = keyRecord.client_id;
 
   // Update the keys last_used_at timestamp
-  await supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date() })
-    .eq("id", keyRecord.id);
+  await ApiKeyModel.update(keyRecord.id!, { last_used_at: new Date() });
 
   // Call next() to continue request handling
   next();
