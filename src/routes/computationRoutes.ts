@@ -30,7 +30,9 @@ router.use(authMiddleware);
 router.post("/generate", ComputationController.generate);
 
 /**
+ * CITATION: JSDoc implementation assisted by Cursor.
  * Validates content against brand guidelines and quality standards
+ * using embedding similarity calculations.
  * 
  * @route POST /api/validate
  * @param {string} [req.body.content_id] - ID of existing content to validate
