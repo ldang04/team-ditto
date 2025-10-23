@@ -13,8 +13,8 @@
  *
  */
 import { Request, Response, NextFunction } from "express";
+import { ApiKeyModel } from "../models/ApiKeyModel";
 import bcrypt from "bcrypt";
-import { supabase } from "../config/supabaseClient";
 
 export async function authMiddleware(
   req: Request,
@@ -31,12 +31,7 @@ export async function authMiddleware(
   const prefix = providedKey.slice(0, 8);
 
   // Fetch the key record from Supabase using prefix with active status
-  const { data: keyRecord, error } = await supabase
-    .from("api_keys")
-    .select("*")
-    .eq("prefix", prefix)
-    .eq("active", true)
-    .single();
+  const { data: keyRecord, error } = await ApiKeyModel.list(prefix);
 
   // If key not found, deny access
   if (error || !keyRecord) {
@@ -53,10 +48,7 @@ export async function authMiddleware(
   req.clientId = keyRecord.client_id;
 
   // Update the keys last_used_at timestamp
-  await supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date() })
-    .eq("id", keyRecord.id);
+  await ApiKeyModel.update(keyRecord.id!, { last_used_at: new Date() });
 
   // Call next() to continue request handling
   next();

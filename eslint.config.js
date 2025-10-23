@@ -19,6 +19,7 @@ export default tseslint.config(
       // Example: Customize to your liking
       'no-unused-vars': 'warn',
       'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
     },
   }
 );

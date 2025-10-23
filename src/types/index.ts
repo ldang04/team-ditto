@@ -10,9 +10,8 @@ export type ApiKey = {
   hashed_key: string;
   name?: string;
   active?: boolean;
+  last_used_at?: Date;
 };
-
-// User type removed - using client-only model
 
 export type Content = {
   id?: string;

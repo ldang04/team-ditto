@@ -3,11 +3,10 @@
     "baseUrl": "http://localhost:3000",
     "apiKey": "YOUR_API_KEY_HERE",
     "clientId": "YOUR_CLIENT_ID_HERE",
-    "userId": "YOUR_USER_ID_HERE",
     "themeId": "YOUR_THEME_ID_HERE",
     "projectId": "YOUR_PROJECT_ID_HERE"
   },
-  
+
   "headers": {
     "validAuth": {
       "Content-Type": "application/json",
@@ -21,7 +20,6 @@
       "Content-Type": "application/json"
     }
   },
-  
+
   "note": "Copy this file to test-data.json and fill in your actual test credentials"
 }
-
