@@ -131,6 +131,11 @@ In another terminal:
 npm run api:test
 ```
 
+**Logging Verification:** API tests trigger logging in the server. To verify logging works:
+1. Watch the first terminal (where `npm start` is running) during API tests
+2. You should see `console.log` output for errors and debugging
+3. Each endpoint call generates log entries showing the service is functioning
+
 #### Generate All Reports:
 ```bash
 npm run reports:all
