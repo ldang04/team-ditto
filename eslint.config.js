@@ -1,4 +1,4 @@
-// eslint.config.js
+//This file was created with the help of ChatGPT and online documentation
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 

@@ -1,6 +1,44 @@
 # Team Ditto - AI-Powered Content Generation API
 
-## 🛠️ Tools & Testing
+## Style Checker
+
+This project utilizes ESLint as a code style checker to ensure consistency amongst the Typscript code, and to find any bugs.
+
+The configuration for this service uses:
+
+- ESLint v9 (flat-config format)
+- TypeScript-ESLint for TypeScript support
+- @eslint/js for base JavaScript rules
+- Custom project rules defined in eslint.config.js
+
+
+To run the style checker, first of course make sure that you have installed all dependencies:
+
+`npm install`
+
+Then, if you added ESLint later, you can install the required packages throught the following command:
+
+`npm install --save-dev eslint typescript-eslint @eslint/js`
+
+To run the style checker, use the following command:
+
+`npm run lint`
+
+To generate an HTML lint report run this command:
+
+`npm run lint:report`
+
+You can find the generated report in the 'reports' folder in the root level directory, with the HTML file named, "eslint-report.html"
+
+
+An example of the report generated is shown below. This screenshot was taken as of 
+## (ENTER DATE AND SC HERE OLIVIA WHEN READY TO DO SO)
+
+
+If curious about the documentation that was used to understand the style checker, check out this [link!](https://eslint.org/docs/latest/use/getting-started)
+
+
+## Tools & Testing
 
 This project includes a comprehensive testing infrastructure with multiple tools for unit testing, API testing, coverage reporting, and CI/CD integration.
 
@@ -82,15 +120,15 @@ This project includes a comprehensive testing infrastructure with multiple tools
 ```bash
 # Basic testing
 npm test                    # Run all tests
-npm run test:unit          # Run tests with coverage
-npm run test:unit:junit    # Run tests with coverage + JUnit XML
+npm run test:unit           # Run tests with coverage
+npm run test:unit:junit     # Run tests with coverage + JUnit XML
 
 # API testing
-npm run api:test           # Run Postman collections
+npm run api:test            # Run Postman collections
 
 # Full reporting
-npm run reports:all        # Generate all reports (tests + coverage + API)
-npm run coverage:summary  # Generate coverage summary
+npm run reports:all         # Generate all reports (tests + coverage + API)
+npm run coverage:summary    # Generate coverage summary
 ```
 
 ### Generated Reports
@@ -104,7 +142,16 @@ npm run coverage:summary  # Generate coverage summary
 
 ---
 
-## AI Citation (Linh): 
+## AI Citations
+
+### (Linh's Citations): 
+### OLIVIA MAKE SURE TO FORMAT THIS WHEN READY TO DO SO
+
 - JSDoc Documentation: used AI to generate API documentation for the /generate endpoint ; highlighted the code in cursor and asked it to generate a JSDoc description based on the given parameters / outputs 
 - Content generation prompts: used Cursor in-line prompting to create a prompt template for context-aware prompts that incorporates the project data and user requirements. Prompted along the lines of: "Based on the user-inputted data, generate a context-aware prompt that produces relevant marketing content. Incorporate the exact variables highlighted in the prompt"
 - AI integration: integrated with Google Cloud Vertex AI for actual content generation. Used GCP credits supplied in class.
+
+
+### AI Citation for Style Checker:
+
+The "lint" lines in the package.json files were created with the help of ChatGPT and documentation reading. The file `eslint.config.js`, which is where all the ESLint settings are, is also cited in the file and was created with the help and guidance of ChatGPT and online documentation. Prompts given were just that of the nature where we explained what we were hoping to achieve with specific settings and asking how we could go about implementing this.
