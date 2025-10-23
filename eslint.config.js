@@ -16,7 +16,6 @@ export default tseslint.config(
       sourceType: 'module',
     },
     rules: {
-      // Example: Customize to your liking
       'no-unused-vars': 'warn',
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
