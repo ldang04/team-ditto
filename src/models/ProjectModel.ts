@@ -2,8 +2,8 @@ import { supabase } from "../config/supabaseClient";
 import { Project } from "../types";
 
 export const ProjectModel = {
-  async listByUser(userId: string) {
-    return await supabase.from("projects").select("*").eq("user_id", userId);
+  async listByClient(clientId: string) {
+    return await supabase.from("projects").select("*").eq("client_id", clientId);
   },
 
   async getById(id: string) {

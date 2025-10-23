@@ -8,13 +8,17 @@ export const ThemeController = {
    */
   async create(req: Request, res: Response) {
     try {
-      const { user_id, name } = req.body;
+      const { name } = req.body;
+      const client_id = req.clientId; // From auth middleware
 
-      if (!user_id || !name) {
+      if (!name) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const { data, error } = await ThemeModel.create(req.body);
+      const { data, error } = await ThemeModel.create({
+        ...req.body,
+        client_id
+      });
 
       if (error || !data) throw error;
 
@@ -25,18 +29,18 @@ export const ThemeController = {
   },
 
   /**
-   * List all themes for a given user
-   * GET /themes/:user_id
+   * List all themes for the authenticated client
+   * GET /themes
    */
-  async listByUser(req: Request, res: Response) {
+  async listByClient(req: Request, res: Response) {
     try {
-      const { user_id } = req.params;
+      const client_id = req.clientId; // From auth middleware
 
-      if (!user_id) {
-        return res.status(400).json({ error: "Missing user_id" });
+      if (!client_id) {
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { data, error } = await ThemeModel.listByUser(user_id);
+      const { data, error } = await ThemeModel.listByClient(client_id);
 
       if (error) throw error;
 

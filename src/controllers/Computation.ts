@@ -4,6 +4,7 @@ import { ContentModel } from "../models/ContentModel";
 import { ProjectModel } from "../models/ProjectModel";
 import { ThemeModel } from "../models/ThemeModel";
 import { EmbeddingsModel } from "../models/EmbeddingsModel";
+import { EmbeddingService } from "../services/EmbeddingService";
 import "dotenv/config";
 
 export const ComputationController = {
@@ -122,7 +123,7 @@ export const ComputationController = {
         }
 
         // generate and store embeddings
-        await ComputationController.generateEmbedding(data.id, variantContent);
+        await EmbeddingService.generateAndStore(data.id, variantContent);
 
         savedVariants.push({
           content_id: data.id,
@@ -154,18 +155,263 @@ export const ComputationController = {
     }
   },
 
-  async generateEmbedding(contentId: string, text: string): Promise<void> {
+
+  /**
+   * Validate content against brand guidelines using embedding similarity
+   * Accepts either content_id (for existing content) or content + project_id (for new content)
+   */
+  async validate(req: Request, res: Response) {
     try {
-      console.log(`Would generate embedding for content ${contentId}: ${text.substring(0, 100)}...`);
-      
-      await EmbeddingsModel.create({
-        content_id: contentId,
-        embedding: [], // Empty array for now
-        text_content: text
+      const { content_id, content, project_id } = req.body;
+
+      // Validate input: need either content_id OR (content + project_id)
+      if (!content_id && (!content || !project_id)) {
+        return res.status(400).json({ 
+          error: "Must provide either content_id OR (content + project_id)" 
+        });
+      }
+
+      let textContent: string;
+      let projectData: any;
+      let themeData: any;
+      let contentEmbedding: number[];
+
+      // Scenario 1: Validate existing content by ID
+      if (content_id) {
+        // Fetch content from database
+        const { supabase } = await import("../config/supabaseClient");
+        const { data: existingContent, error: fetchError } = await supabase
+          .from("contents")
+          .select("*")
+          .eq("id", content_id)
+          .single();
+
+        if (fetchError || !existingContent) {
+          return res.status(404).json({ error: "Content not found" });
+        }
+
+        textContent = existingContent.text_content;
+        
+        // Try to get existing embedding
+        const { data: embeddingData } = await EmbeddingsModel.getByContentId(content_id);
+        if (embeddingData && embeddingData.length > 0 && embeddingData[0].embedding.length > 0) {
+          contentEmbedding = embeddingData[0].embedding;
+        } else {
+          // Generate new embedding
+          contentEmbedding = await EmbeddingService.generateAndStore(content_id, textContent);
+        }
+        
+        // Fetch project and theme
+        const { data: project, error: projectError } = await ProjectModel.getById(existingContent.project_id);
+        if (projectError || !project) {
+          return res.status(404).json({ error: "Project not found" });
+        }
+        projectData = project;
+
+        const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
+        if (themeError || !theme) {
+          return res.status(404).json({ error: "Theme not found" });
+        }
+        themeData = theme;
+      } 
+      // Scenario 2: Validate new/raw content
+      else {
+        textContent = content;
+
+        const { data: project, error: projectError } = await ProjectModel.getById(project_id);
+        if (projectError || !project) {
+          return res.status(404).json({ error: "Project not found" });
+        }
+        projectData = project;
+
+        const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
+        if (themeError || !theme) {
+          return res.status(404).json({ error: "Theme not found" });
+        }
+        themeData = theme;
+
+        // Generate embedding for new content (without storing)
+        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(textContent);
+      }
+
+      // Build brand reference texts
+      const brandTexts = [
+        `${themeData.name}: ${themeData.tags.join(', ')}`,
+        `Inspired by: ${themeData.inspirations.join(', ')}`,
+        `${projectData.description}`,
+        `Goals: ${projectData.goals}`,
+        `Target: ${projectData.customer_type}`
+      ];
+
+      // Generate embeddings for brand references
+      const brandEmbeddings = await Promise.all(
+        brandTexts.map(text => EmbeddingService.generateDocumentEmbedding(text))
+      );
+
+      // Calculate similarity scores with each brand reference
+      const similarityScores = brandEmbeddings.map(brandEmb => 
+        EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
+      );
+
+      // Average similarity as brand consistency score
+      const avgSimilarity = similarityScores.reduce((sum, score) => sum + score, 0) / similarityScores.length;
+      const brandConsistencyScore = Math.round(avgSimilarity * 100);
+
+      // Quality heuristics based on text features
+      const qualityScore = ComputationController.calculateQualityScore(textContent);
+
+      // Overall score: 60% brand consistency, 40% quality
+      const overallScore = Math.round(brandConsistencyScore * 0.6 + qualityScore * 0.4);
+      const passesValidation = overallScore >= 70;
+
+      // Generate insights based on scores
+      const strengths = [];
+      const issues = [];
+      const recommendations = [];
+
+      // Analyze brand consistency
+      if (brandConsistencyScore >= 80) {
+        strengths.push("Strong alignment with brand guidelines");
+      } else if (brandConsistencyScore < 60) {
+        issues.push({
+          severity: "major",
+          category: "brand_alignment",
+          description: "Content does not strongly align with brand theme and goals",
+          suggestion: `Incorporate more elements from: ${themeData.tags.slice(0, 3).join(', ')}`
+        });
+      }
+
+      // Analyze quality
+      if (qualityScore >= 80) {
+        strengths.push("High-quality writing with good structure");
+      } else if (qualityScore < 60) {
+        issues.push({
+          severity: "major",
+          category: "clarity",
+          description: "Content quality could be improved",
+          suggestion: "Review for clarity, length, and professional tone"
+        });
+      }
+
+      // Check for specific patterns
+      if (textContent.match(/[!]{2,}/)) {
+        issues.push({
+          severity: "minor",
+          category: "tone",
+          description: "Excessive exclamation marks detected",
+          suggestion: "Use a more professional tone"
+        });
+      }
+
+      if (textContent.length < 50) {
+        issues.push({
+          severity: "minor",
+          category: "clarity",
+          description: "Content is very short",
+          suggestion: "Consider adding more detail to convey value"
+        });
+      }
+
+      // Generate recommendations
+      if (brandConsistencyScore < 80) {
+        recommendations.push(`Reference brand inspirations: ${themeData.inspirations.slice(0, 2).join(', ')}`);
+      }
+      if (!textContent.toLowerCase().includes(projectData.customer_type.split(' ')[0])) {
+        recommendations.push(`Address target audience: ${projectData.customer_type}`);
+      }
+
+      // Build summary
+      let summary = "";
+      if (overallScore >= 85) {
+        summary = "Excellent content that aligns well with brand guidelines and maintains high quality.";
+      } else if (overallScore >= 70) {
+        summary = "Good content with minor improvements possible for better brand alignment.";
+      } else if (overallScore >= 50) {
+        summary = "Content needs revision to better align with brand guidelines.";
+      } else {
+        summary = "Content significantly deviates from brand guidelines and requires substantial revision.";
+      }
+
+      // Return validation results
+      res.json({
+        success: true,
+        content_id: content_id || null,
+        project_id: projectData.id,
+        validation: {
+          brand_consistency_score: brandConsistencyScore,
+          quality_score: qualityScore,
+          overall_score: overallScore,
+          passes_validation: passesValidation,
+          strengths: strengths.length > 0 ? strengths : ["Content meets basic requirements"],
+          issues: issues,
+          recommendations: recommendations.length > 0 ? recommendations : ["Content is well-aligned with brand"],
+          summary: summary,
+          similarity_details: {
+            theme_similarity: Math.round(similarityScores[0] * 100),
+            inspiration_similarity: Math.round(similarityScores[1] * 100),
+            description_similarity: Math.round(similarityScores[2] * 100),
+            goals_similarity: Math.round(similarityScores[3] * 100),
+            audience_similarity: Math.round(similarityScores[4] * 100)
+          }
+        },
+        timestamp: new Date().toISOString()
       });
 
-    } catch (error) {
-      console.warn("Failed to generate/store embedding:", error);
+    } catch (error: any) {
+      console.error("Validation error:", error);
+      res.status(500).json({ 
+        error: "Content validation failed", 
+        details: error.message || "Unknown error"
+      });
     }
+  },
+
+  /**
+   * Calculate quality score based on text heuristics
+   */
+  calculateQualityScore(text: string): number {
+    let score = 70; // Start with baseline
+
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    // Length checks
+    if (words.length >= 20 && words.length <= 200) {
+      score += 10; // Good length
+    } else if (words.length < 10 || words.length > 300) {
+      score -= 10; // Too short or too long
+    }
+
+    // Sentence structure
+    if (sentences.length >= 2) {
+      score += 5; // Multiple sentences
+    }
+
+    // Average word length (indicator of vocabulary)
+    const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
+    if (avgWordLength >= 5 && avgWordLength <= 8) {
+      score += 5; // Good vocabulary balance
+    }
+
+    // Check for excessive punctuation
+    if ((text.match(/[!]/g) || []).length > 3) {
+      score -= 10; // Too many exclamation marks
+    }
+
+    // Check for all caps (unprofessional)
+    const capsWords = words.filter(w => w === w.toUpperCase() && w.length > 2);
+    if (capsWords.length > words.length * 0.1) {
+      score -= 10; // Too much shouting
+    }
+
+    // Professional indicators
+    const professionalWords = ['innovative', 'professional', 'seamless', 'efficient', 'experience', 'solution'];
+    const professionalCount = professionalWords.filter(pw => 
+      text.toLowerCase().includes(pw)
+    ).length;
+    score += Math.min(professionalCount * 3, 10);
+
+    return Math.max(0, Math.min(100, score));
   }
 };
+

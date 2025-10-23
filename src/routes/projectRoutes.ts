@@ -16,8 +16,8 @@ router.use(authMiddleware);
 // Create project
 router.post("/projects/create", ProjectController.create);
 
-// List projects by user
-router.get("/projects/:user_id", ProjectController.listByUser);
+// List projects for authenticated client
+router.get("/projects", ProjectController.listByClient);
 
 // Update project
 router.patch("/projects/:id", ProjectController.update);

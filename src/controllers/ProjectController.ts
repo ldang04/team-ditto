@@ -9,13 +9,17 @@ export const ProjectController = {
    */
   async create(req: Request, res: Response) {
     try {
-      const { user_id, name } = req.body;
+      const { name } = req.body;
+      const client_id = req.clientId; // From auth middleware
 
-      if (!user_id || !name) {
+      if (!name) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const { data, error } = await ProjectModel.create(req.body);
+      const { data, error } = await ProjectModel.create({
+        ...req.body,
+        client_id
+      });
 
       if (error || !data) throw error;
 
@@ -26,18 +30,18 @@ export const ProjectController = {
   },
 
   /**
-   * List all projects for a given user
-   * GET /projects/:user_id
+   * List all projects for the authenticated client
+   * GET /projects
    */
-  async listByUser(req: Request, res: Response) {
+  async listByClient(req: Request, res: Response) {
     try {
-      const { user_id } = req.params;
+      const client_id = req.clientId; // From auth middleware
 
-      if (!user_id) {
-        return res.status(400).json({ error: "Missing user_id" });
+      if (!client_id) {
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { data, error } = await ProjectModel.listByUser(user_id);
+      const { data, error } = await ProjectModel.listByClient(client_id);
 
       if (error) throw error;
 

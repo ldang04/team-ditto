@@ -12,12 +12,7 @@ export type ApiKey = {
   active?: boolean;
 };
 
-export type User = {
-  id?: string;
-  name: string;
-  email: string;
-  client_id: string;
-};
+// User type removed - using client-only model
 
 export type Content = {
   id?: string;
