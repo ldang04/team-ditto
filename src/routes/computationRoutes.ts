@@ -29,16 +29,19 @@ router.use(authMiddleware);
  */
 router.post("/generate", ComputationController.generate);
 
-// GET /api/validate
-// Returns
-//
-router.post("/validate", async (req, res) => {
-    // TODO: Apply brand consistency checks
-    // TODO: Score content quality
-    // TODO: Suggest improvements
-
-  res.json({ message: "validate endpoint not implemented yet" });
-});
+/**
+ * Validates content against brand guidelines and quality standards
+ * 
+ * @route POST /api/validate
+ * @param {string} [req.body.content_id] - ID of existing content to validate
+ * @param {string} [req.body.content] - Raw content text to validate
+ * @param {string} [req.body.project_id] - Required if validating raw content
+ * @returns {Object} Validation report with scores, issues, and recommendations
+ * @throws {400} If neither content_id nor (content + project_id) is provided
+ * @throws {404} If content or project not found
+ * @throws {500} If validation fails
+ */
+router.post("/validate", ComputationController.validate);
 
 // GET /api/rank
 // Returns

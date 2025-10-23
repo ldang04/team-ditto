@@ -260,6 +260,60 @@
     }
   },
 
+  "validateEndpoint": {
+    "validRequests": {
+      "validateByContentId": {
+        "content_id": "existing-content-uuid"
+      },
+      "validateRawContent": {
+        "content": "Check out our amazing new product! It's going to revolutionize the way you work. Click here now!!!",
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1"
+      },
+      "validateGoodContent": {
+        "content": "Introducing our latest innovation designed specifically for tech-savvy professionals. Experience seamless workflow integration with our modern, clean interface inspired by industry leaders. Elevate your productivity today.",
+        "project_id": "f51d5060-f23f-4742-8830-bc8ea84d24f1"
+      }
+    },
+    "invalidRequests": {
+      "missingBoth": {},
+      "missingProjectId": {
+        "content": "Some content to validate"
+      },
+      "invalidContentId": {
+        "content_id": "invalid-uuid"
+      }
+    },
+    "expectedResponse": {
+      "success": true,
+      "content_id": "string or null",
+      "project_id": "string",
+      "validation": {
+        "brand_consistency_score": 85,
+        "quality_score": 90,
+        "overall_score": 87,
+        "passes_validation": true,
+        "strengths": [
+          "Aligns well with modern tech theme",
+          "Professional tone matches target audience"
+        ],
+        "issues": [
+          {
+            "severity": "minor",
+            "category": "brand_alignment",
+            "description": "Could emphasize brand inspirations more",
+            "suggestion": "Reference key features that align with Apple/Google design principles"
+          }
+        ],
+        "recommendations": [
+          "Consider adding a clear call-to-action",
+          "Emphasize unique value proposition"
+        ],
+        "summary": "Content aligns well with brand guidelines with minor improvements possible"
+      },
+      "timestamp": "2025-10-23T02:44:37.486Z"
+    }
+  },
+
   "assertionHelpers": {
     "responseStructure": {
       "requiredFields": ["success", "variants", "project_id", "media_type", "variant_count", "timestamp"],
@@ -278,6 +332,20 @@
       "maxLength": 2000,
       "shouldContain": ["project context", "theme elements"],
       "shouldNotContain": ["[ERROR]", "[PLACEHOLDER]"]
+    },
+    "validationStructure": {
+      "requiredFields": ["success", "content_id", "project_id", "validation", "timestamp"],
+      "validationFields": [
+        "brand_consistency_score",
+        "quality_score", 
+        "overall_score",
+        "passes_validation",
+        "strengths",
+        "issues",
+        "recommendations",
+        "summary"
+      ],
+      "issueStructure": ["severity", "category", "description", "suggestion"]
     }
   }
 }
