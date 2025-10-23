@@ -4,7 +4,24 @@
 
 ### 1. Create New API Key
 
-If you need a fresh API key for testing, create one in your database or use the API.
+Create a fresh API key using the public endpoint:
+
+```bash
+curl -X POST http://localhost:3000/api/clients/create \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Company"}'
+```
+
+Response:
+```json
+{
+  "message": "Client created successfully",
+  "client_id": "abc-123",
+  "api_key": "your-new-api-key-here"
+}
+```
+
+**Important**: Save the API key immediately - it's only shown once!
 
 ### 2. Set Environment Variables
 

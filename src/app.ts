@@ -6,7 +6,6 @@
  */
 import express from "express";
 import clientsRouter from "./routes/clientRoutes";
-import usersRouter from "./routes/userRoutes";
 import projectsRouter from "./routes/projectRoutes";
 import themesRouter from "./routes/themeRoutes";
 import contentsRouter from "./routes/contentRoutes";
@@ -60,7 +59,6 @@ app.get("/api/vertex-test", async (req, res) => {
 app.use("/api", clientsRouter);
 
 // Protected routes
-app.use("/api", usersRouter);
 app.use("/api", projectsRouter);
 app.use("/api", themesRouter);
 app.use("/api", contentsRouter);
