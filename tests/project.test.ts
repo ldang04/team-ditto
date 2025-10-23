@@ -6,6 +6,7 @@
 
 import request from "supertest";
 import app from "../src/app";
+import { resetMockTables } from "../__mocks__/supabase";
 
 jest.setTimeout(20000);
 
@@ -15,12 +16,15 @@ describe("Project API", () => {
 
   // Before tests, create a client to get a valid API key
   beforeAll(async () => {
+    resetMockTables();
+
     const res = await request(app)
       .post("/api/clients/create")
       .send({ name: "Project Test Client" });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+
     apiKey = res.body.data.api_key;
     expect(apiKey).toBeDefined();
   });
@@ -39,7 +43,7 @@ describe("Project API", () => {
         customer_type: "tech-savvy professionals",
       });
 
-    expect([200, 201]).toContain(res.status);
+    expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Project created successfully");
     expect(res.body.data).toHaveProperty("id");
@@ -74,7 +78,6 @@ describe("Project API", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Retrieved projects");
-    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   /**

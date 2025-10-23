@@ -49,6 +49,7 @@ export const ContentController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
+      console.log(err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

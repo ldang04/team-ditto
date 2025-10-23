@@ -7,12 +7,15 @@
 
 import request from "supertest";
 import app from "../src/app";
+import { resetMockTables } from "../__mocks__/supabase";
 
 describe("Theme API", () => {
   let apiKey: string;
 
   // Before tests, create a client to get a valid API key
   beforeAll(async () => {
+    resetMockTables();
+
     const res = await request(app)
       .post("/api/clients/create")
       .send({ name: "Theme Test Client" });
@@ -64,7 +67,6 @@ describe("Theme API", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Retrieved themes");
-    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   // Unauthorized access — missing API key

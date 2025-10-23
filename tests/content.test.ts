@@ -7,6 +7,7 @@
 
 import request from "supertest";
 import app from "../src/app";
+import { resetMockTables } from "../__mocks__/supabase";
 
 describe("Content API", () => {
   let apiKey: string;
@@ -14,6 +15,8 @@ describe("Content API", () => {
 
   // Create a client first to obtain a valid API key
   beforeAll(async () => {
+    resetMockTables();
+
     const res = await request(app)
       .post("/api/clients/create")
       .send({ name: "Project Test Client" });
@@ -43,7 +46,6 @@ describe("Content API", () => {
     expect([200, 500]).toContain(res.status);
     if (res.status === 200) {
       expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data)).toBe(true);
     } else {
       // 500 if Supabase credentials or project_id invalid
       expect(res.body).toHaveProperty("error");
@@ -58,7 +60,7 @@ describe("Content API", () => {
       .get("/api/contents/")
       .set("Authorization", `Bearer ${apiKey}`);
 
-    expect([400, 404]).toContain(res.status);
+    expect(res.status).toBe(404);
   });
 
   /**

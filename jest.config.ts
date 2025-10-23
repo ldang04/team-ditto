@@ -18,5 +18,9 @@ const config: Config = {
   ],
   coverageReporters: ["text-summary", "lcov", "html"],
   coverageDirectory: "coverage",
+  moduleNameMapper: {
+    "^../config/supabaseClient$": "<rootDir>/__mocks__/supabase.ts",
+    "^bcrypt$": "<rootDir>/__mocks__/bcrypt.ts",
+  },
 };
 export default config;

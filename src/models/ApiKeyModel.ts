@@ -17,7 +17,7 @@ export const ApiKeyModel = {
    *
    */
   async create(key: ApiKey): Promise<{ data: ApiKey[] | null; error: any }> {
-    return await supabase.from("api_keys").insert(key);
+    return await supabase.from("api_keys").insert(key).select().single();
   },
 
   /**
@@ -55,7 +55,6 @@ export const ApiKeyModel = {
       .from("api_keys")
       .select("*")
       .eq("prefix", prefix)
-      .eq("active", true)
       .single();
   },
 };
