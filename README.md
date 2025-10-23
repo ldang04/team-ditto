@@ -7,7 +7,7 @@ An intelligent API service that generates and validates marketing content using 
 - [API Documentation](#api-documentation)
 - [Style Checker](#style-checker)
 - [Tools & Testing](#tools--testing)
-- [Bugs & Challenges Encountered Documentation](#bugs--challenges-encountered-documentation)
+- [Bugs & Challenges Encountered](#bugs--challenges-encountered)
 - [AI Citations](#ai-citations)
 
 ---
@@ -464,7 +464,7 @@ npm run coverage:summary    # Generate coverage summary
 | **API Test Report** | `reports/postman-report.html` | Postman test results |
 
 
-## Bugs & Challenges Encountered Documentation
+## Bugs & Challenges Encountered
 
 The following lists some bugs and errors that we ran into. This section serves as:
 
@@ -509,7 +509,29 @@ This sections of the project was done with the help of Cursor. A prompt like "mo
 
 There are some comments that were done with the assistance of Copilot. Prompts were of the nature asking for assistance in commenting and providing descriptions for functions and files.
 
+### AI Citation for Content Validation Implementation:
+- **Files:** `src/controllers/Computation.ts` (validate function), `src/routes/computationRoutes.ts`
+- **Use Case:** Used Cursor to add error handling the `/api/validate` endpoint that compares generated content against brand themes using cosine similarity calculations that i wrote
+- **What AI Generated:** 
+  - Error handling for edge cases (missing params, invalid IDs)
+  - JSDoc comments for the validate function
+
+### AI Citation for API Testing Enhancements:
+- **Files:** `postman/collection.json`, `README.md`
+- **Use Case:** Used Cursor to expand API test coverage from 25 to 34+ tests
+- **What AI Generated:**
+  - 4 data persistence tests (create → read → update → read)
+  - 5 multi-client isolation tests with separate API keys
+  - Collection-level prerequest scripts for logging documentation
+  - README section explaining how to verify logging during API tests
+
+### AI Citation for Documentation:
+- **Files:** `README.md` (API Documentation section)
+- **Use Case:** Enhanced API documentation clarity
+- **Prompts:** "Clarify that /api/clients/create is a public endpoint used to obtain API keys"
+- **What AI Generated:** "How to get an API key" section with step-by-step instructions
+
 
 ### Overall Statement For Use of AI:
 
-This project at times utilized the free AI tools that are Cursor and ChatGPT. These tools were consulted when guidance was needed to setup certain endpoints, the testing framework, and the organization of this README. Although there should be citations within the code that mark when AI was used, we wanted to include this section and overall statement to ensure that we give a proper citation to external articial intelligence tools/sources used.
+This project at times utilized the free AI tools that are Cursor (student plan - free) and ChatGPT (free). These tools were consulted when guidance was needed to setup certain endpoints, the testing framework, and the organization of this README (which has already been documented in the section above). Although there are citations within the code that mark when AI was used, we wanted to include this section and overall statement to ensure that we give a proper citation to external articial intelligence tools/sources used. All AI-assisted code was reviewed, tested, and validated before committing. GCP credits for Vertex AI were obtained through Columbia University.

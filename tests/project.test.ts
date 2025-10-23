@@ -130,6 +130,9 @@ describe("Project API", () => {
     expect(res.status).toBe(404);
   });
 
+  /**
+   * Multiple clients
+   */
   it("should isolate projects between two clients", async () => {
     // Create client A
     const clientA = await request(app)

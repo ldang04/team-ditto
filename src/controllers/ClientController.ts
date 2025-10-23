@@ -28,6 +28,17 @@ export const ClientController = {
   async createClient(req: Request, res: Response) {
     try {
       console.log("POST /clients/create", req.body);
+      const { name } = req.body;
+
+      if (!name) {
+        const serviceResponse = ServiceResponse.failure(
+          null,
+          "Missing required fields",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
       const { data: client, error: clientError } = await ClientModel.create(
         req.body
       );

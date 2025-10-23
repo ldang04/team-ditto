@@ -84,4 +84,15 @@ describe("Content API", () => {
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing API key");
   });
+
+  /**
+   * Atypical input: empty project
+   */
+  it("should handle atypical valid input (empty project with no contents)", async () => {
+    const res = await request(app)
+      .get(`/api/contents/${projectId}`)
+      .set("Authorization", `Bearer ${apiKey}`);
+
+    expect([200, 204]).toContain(res.status);
+  });
 });

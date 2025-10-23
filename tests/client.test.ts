@@ -29,4 +29,18 @@ describe("Client API", () => {
     expect(res.body).toHaveProperty("data.client_id");
     expect(res.body).toHaveProperty("message", "Client created successfully");
   });
+
+  it("should handle atypical valid input (short name)", async () => {
+    const res = await request(app)
+      .post("/api/clients/create")
+      .send({ name: "A" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+  });
+
+  it("should return 400 for missing client name", async () => {
+    const res = await request(app).post("/api/clients/create").send({});
+    expect(res.status).toBe(400);
+  });
 });
