@@ -42,14 +42,26 @@ export const supabase = {
       }),
 
       select: () => ({
-        eq: (field: string, value: any) => ({
-          single: async () => {
-            const found = store.find((r) => r[field] === value) ?? null;
+        eq: (field: string, value: any) => {
+          const filtered = store.filter((r) => r[field] === value);
+
+          // Return a promise when awaited directly
+          const promise = makeResponse(filtered, null);
+          (promise as any).single = async () => {
+            const found = filtered[0] ?? null;
             return makeResponse(found, found ? null : { message: "Not found" });
-          },
+          };
+
+          return promise;
+        },
+
+        async single() {
+          return makeResponse(store.length ? store[0] : null, null);
+        },
+
+        order: () => ({
+          single: async () => makeResponse(store, null),
         }),
-        single: async () => makeResponse(store.length ? store[0] : null, null),
-        order: () => ({ single: async () => makeResponse(store, null) }),
       }),
 
       update: (updates: any) => ({

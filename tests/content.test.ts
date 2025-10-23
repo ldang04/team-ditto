@@ -35,6 +35,11 @@ describe("Content API", () => {
     projectId = projectRes.body.data.id;
   });
 
+  beforeEach(() => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
   /**
    * Valid case: List contents by project ID
    */
@@ -42,6 +47,8 @@ describe("Content API", () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
       .set("Authorization", `Bearer ${apiKey}`);
+
+    expect(console.log).toHaveBeenCalled();
 
     expect([200, 500]).toContain(res.status);
     if (res.status === 200) {
@@ -60,6 +67,8 @@ describe("Content API", () => {
       .get("/api/contents/")
       .set("Authorization", `Bearer ${apiKey}`);
 
+    expect(console.log).toHaveBeenCalled();
+
     expect(res.status).toBe(404);
   });
 
@@ -68,6 +77,9 @@ describe("Content API", () => {
    */
   it("should return 401 if no API key provided", async () => {
     const res = await request(app).get(`/api/contents/${projectId}`);
+
+    expect(console.log).toHaveBeenCalled();
+
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing API key");

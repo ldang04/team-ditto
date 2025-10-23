@@ -27,6 +27,7 @@ export const ClientController = {
    */
   async createClient(req: Request, res: Response) {
     try {
+      console.log("POST /clients/create", req.body);
       const { data: client, error: clientError } = await ClientModel.create(
         req.body
       );
@@ -54,7 +55,7 @@ export const ClientController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ClientController.createClient:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

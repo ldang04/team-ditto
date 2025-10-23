@@ -13,6 +13,7 @@ import { handleServiceResponse } from "../utils/httpHandlers";
 export const ComputationController = {
   async generate(req: Request, res: Response) {
     try {
+      console.log("POST /generate", req.body);
       const {
         project_id,
         prompt,
@@ -175,8 +176,9 @@ export const ComputationController = {
         "Content generated successfully",
         StatusCodes.CREATED
       );
+      return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
-      console.error("Generate error:", error);
+      console.error("Error in ProjectController.generate:", error);
       const serviceResponse = ServiceResponse.failure(error);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -188,6 +190,7 @@ export const ComputationController = {
    */
   async validate(req: Request, res: Response) {
     try {
+      console.log("POST /validate", req.body);
       const { content_id, content, project_id } = req.body;
 
       let serviceResponse;
@@ -441,7 +444,7 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
-      console.error("Validation error:", error);
+      console.error("Error in ComputationController.validate:", error);
       const serviceResponse = ServiceResponse.failure(error);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -449,6 +452,8 @@ export const ComputationController = {
 
   async testVertex(req: Request, res: Response) {
     try {
+      console.log("POST /vertext-test", req.body);
+
       let serviceResponse;
 
       console.log("GCP_PROJECT_ID from env:", process.env.GCP_PROJECT_ID);
@@ -492,6 +497,7 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
+      console.error("Error in ComputationController.testVertex:", error);
       const serviceResponse = ServiceResponse.failure(
         error,
         "Vertex test failed"

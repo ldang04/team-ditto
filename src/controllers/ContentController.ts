@@ -27,6 +27,7 @@ export const ContentController = {
    */
   async list(req: Request, res: Response) {
     try {
+      console.log("POST /contents/:project_id", req.body);
       let serviceResponse;
       const { project_id } = req.params;
       if (!project_id) {
@@ -49,7 +50,7 @@ export const ContentController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ContentController.list:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

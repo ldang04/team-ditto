@@ -17,6 +17,12 @@ describe("ClientController.createClient", () => {
     req = { body: { name: "Mock Client" } };
     res = {};
     jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("should handle client creation error (clientError or null client)", async () => {
@@ -31,6 +37,9 @@ describe("ClientController.createClient", () => {
     );
 
     await ClientController.createClient(req as Request, res as Response);
+
+    expect(console.log).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
 
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;
@@ -57,6 +66,9 @@ describe("ClientController.createClient", () => {
 
     await ClientController.createClient(req as Request, res as Response);
 
+    expect(console.log).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
+
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;
     expect(response.success).toBe(false);
@@ -74,6 +86,9 @@ describe("ClientController.createClient", () => {
     );
 
     await ClientController.createClient(req as Request, res as Response);
+
+    expect(console.log).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
 
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;

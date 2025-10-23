@@ -7,10 +7,22 @@ describe("Client API", () => {
     resetMockTables();
   });
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("should create a client and return an API key", async () => {
     const res = await request(app)
       .post("/api/clients/create")
       .send({ name: "Test Client Jest" });
+
+    expect(console.log).toHaveBeenCalled();
 
     expect(res.status).toBe(201);
     expect(res.body).toHaveProperty("success", true);
