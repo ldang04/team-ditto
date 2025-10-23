@@ -26,6 +26,11 @@ describe("Theme API", () => {
     expect(apiKey).toBeDefined();
   });
 
+  beforeEach(() => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
   // Test successful theme creation
   it("should create a new theme for authenticated client", async () => {
     const res = await request(app)
@@ -38,6 +43,7 @@ describe("Theme API", () => {
         font: "Roboto",
       });
 
+    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Theme created successfully");
@@ -53,6 +59,7 @@ describe("Theme API", () => {
         font: "Roboto",
       });
 
+    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing required fields");
@@ -64,6 +71,7 @@ describe("Theme API", () => {
       .get("/api/themes")
       .set("Authorization", `Bearer ${apiKey}`);
 
+    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Retrieved themes");
@@ -73,6 +81,7 @@ describe("Theme API", () => {
   it("should return 401 when API key is missing", async () => {
     const res = await request(app).get("/api/themes");
 
+    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
   });

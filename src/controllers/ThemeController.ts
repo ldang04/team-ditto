@@ -26,6 +26,7 @@ export const ThemeController = {
    */
   async create(req: Request, res: Response) {
     try {
+      console.log("POST /themes/create", req.body);
       let serviceResponse;
       const { name } = req.body;
       const client_id = req.clientId;
@@ -53,7 +54,7 @@ export const ThemeController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ThemeController.create:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -71,6 +72,7 @@ export const ThemeController = {
    */
   async listByClient(req: Request, res: Response) {
     try {
+      console.log("POST /themes", req.body);
       let serviceResponse;
       const client_id = req.clientId;
 
@@ -94,7 +96,7 @@ export const ThemeController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ThemeController.listByClient:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

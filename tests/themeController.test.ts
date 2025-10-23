@@ -14,6 +14,8 @@ describe("ThemeController", () => {
     req = { body: { name: "Test Theme" }, clientId: "mock-client-1" };
     res = {};
     jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   describe("create()", () => {
@@ -27,6 +29,7 @@ describe("ThemeController", () => {
 
       expect(ThemeModel.create).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
+      expect(console.log).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
       expect(serviceResponse.success).toBe(true);
@@ -37,6 +40,7 @@ describe("ThemeController", () => {
       req.body = {}; // missing name
       await ThemeController.create(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -53,6 +57,7 @@ describe("ThemeController", () => {
 
       await ThemeController.create(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -66,6 +71,7 @@ describe("ThemeController", () => {
 
       await ThemeController.create(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -83,6 +89,7 @@ describe("ThemeController", () => {
 
       await ThemeController.listByClient(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -96,6 +103,7 @@ describe("ThemeController", () => {
 
       await ThemeController.listByClient(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -112,6 +120,7 @@ describe("ThemeController", () => {
 
       await ThemeController.listByClient(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -125,6 +134,7 @@ describe("ThemeController", () => {
 
       await ThemeController.listByClient(req, res);
 
+      expect(console.log).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];

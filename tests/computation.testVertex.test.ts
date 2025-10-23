@@ -29,12 +29,20 @@ describe("ComputationController.testVertex", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("should return failure if GCP_PROJECT_ID is missing", async () => {
     delete process.env.GCP_PROJECT_ID;
 
     await ComputationController.testVertex(mockReq, mockRes);
+
+    expect(console.log).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -50,6 +58,8 @@ describe("ComputationController.testVertex", () => {
     process.env.VERTEX_MODEL_TEXT = "mock-model";
 
     await ComputationController.testVertex(mockReq, mockRes);
+
+    expect(console.log).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -71,6 +81,9 @@ describe("ComputationController.testVertex", () => {
     }));
 
     await ComputationController.testVertex(mockReq, mockRes);
+
+    expect(console.log).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({

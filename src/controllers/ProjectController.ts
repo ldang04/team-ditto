@@ -26,6 +26,7 @@ export const ProjectController = {
    */
   async create(req: Request, res: Response) {
     try {
+      console.log("POST /projects/create", req.body);
       let serviceResponse;
       const { name } = req.body;
       const client_id = req.clientId;
@@ -53,7 +54,7 @@ export const ProjectController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ProjectController.create:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -71,6 +72,7 @@ export const ProjectController = {
    */
   async listByClient(req: Request, res: Response) {
     try {
+      console.log("POST /projects", req.body);
       let serviceResponse;
       const client_id = req.clientId;
 
@@ -94,7 +96,7 @@ export const ProjectController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ProjectController.listByClient:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -112,6 +114,7 @@ export const ProjectController = {
    */
   async update(req: Request, res: Response) {
     try {
+      console.log("POST /projects/:id", req.body);
       let serviceResponse;
       const { id } = req.params;
       const updates: Partial<Project> = req.body;
@@ -136,7 +139,7 @@ export const ProjectController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.log(err);
+      console.error("Error in ProjectController.update:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

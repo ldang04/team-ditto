@@ -8,10 +8,22 @@ jest.mock("../src/utils/httpHandlers", () => ({
 describe("ComputationController.generate", () => {
   const mockRes = {} as any;
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("should return 400 if project_id or prompt is missing", async () => {
     const mockReq = { body: {} } as any;
 
     await ComputationController.generate(mockReq, mockRes);
+
+    expect(console.log).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({

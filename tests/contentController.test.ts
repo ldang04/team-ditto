@@ -14,6 +14,12 @@ describe("ContentController.list", () => {
     req = { params: { project_id: "mock-project-1" } };
     res = {};
     jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("should handle missing project_id (400)", async () => {
@@ -21,6 +27,7 @@ describe("ContentController.list", () => {
 
     await ContentController.list(req as Request, res as Response);
 
+    expect(console.log).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalled();
     const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
       .calls[0];
@@ -36,6 +43,7 @@ describe("ContentController.list", () => {
 
     await ContentController.list(req as Request, res as Response);
 
+    expect(console.log).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalled();
     const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
       .calls[0];
@@ -50,6 +58,7 @@ describe("ContentController.list", () => {
 
     await ContentController.list(req as Request, res as Response);
 
+    expect(console.log).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalled();
     const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
       .calls[0];
@@ -66,6 +75,7 @@ describe("ContentController.list", () => {
 
     await ContentController.list(req as Request, res as Response);
 
+    expect(console.log).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalled();
     const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
       .calls[0];
