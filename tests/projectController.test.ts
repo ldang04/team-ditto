@@ -23,6 +23,24 @@ describe("ProjectController", () => {
   });
 
   describe("create", () => {
+    it("should create project successfully with valid input", async () => {
+      const localReq = { ...req, body: { name: "Valid Project" } } as any;
+
+      (ProjectModel.create as jest.Mock).mockResolvedValue({
+        data: { id: "mock-project-1", name: "Valid Project" },
+        error: null,
+      });
+
+      await ProjectController.create(localReq as Request, res as Response);
+
+      expect(console.log).toHaveBeenCalled();
+      expect(handleServiceResponse).toHaveBeenCalled();
+      const [response] = (handleServiceResponse as jest.Mock).mock.calls[0];
+
+      expect(response.success).toBe(true);
+      expect(response.message).toBe("Project created successfully");
+    });
+
     it("should throw if model returns error or null data", async () => {
       (ProjectModel.create as jest.Mock).mockResolvedValue({
         data: null,
@@ -54,9 +72,21 @@ describe("ProjectController", () => {
   });
 
   describe("listByClient", () => {
+    it("should return list of projects successfully", async () => {
+      (ProjectModel.listByClient as jest.Mock).mockResolvedValue({
+        data: [{ id: "p1", name: "Test Project" }],
+        error: null,
+      });
+
+      await ProjectController.listByClient(req as Request, res as Response);
+
+      const [response] = (handleServiceResponse as jest.Mock).mock.calls[0];
+      expect(response.success).toBe(true);
+      expect(response.message).toBe("Retrieved projects");
+    });
+
     it("should handle missing client_id (Unauthorized)", async () => {
       (req as any).clientId = undefined;
-
       await ProjectController.listByClient(req as Request, res as Response);
 
       expect(console.log).toHaveBeenCalled();
@@ -97,6 +127,20 @@ describe("ProjectController", () => {
   });
 
   describe("update", () => {
+    it("should update project successfully", async () => {
+      req.params = { id: "mock-project-1" };
+      (ProjectModel.update as jest.Mock).mockResolvedValue({
+        data: { id: "mock-project-1", name: "Updated Project" },
+        error: null,
+      });
+
+      await ProjectController.update(req as Request, res as Response);
+
+      const [response] = (handleServiceResponse as jest.Mock).mock.calls[0];
+      expect(response.success).toBe(true);
+      expect(response.message).toBe("Updated project successfully");
+    });
+
     it("should handle missing id param", async () => {
       req.params = {};
 

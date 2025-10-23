@@ -25,6 +25,32 @@ describe("ClientController.createClient", () => {
     jest.restoreAllMocks();
   });
 
+  it("should create a client successfully with valid input", async () => {
+    (ClientModel.create as jest.Mock).mockResolvedValue({
+      data: { id: "mock-client-1" },
+      error: null,
+    });
+
+    (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-key");
+
+    (ApiKeyModel.create as jest.Mock).mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const mockHandle = jest.spyOn(
+      require("../src/utils/httpHandlers"),
+      "handleServiceResponse"
+    );
+
+    await ClientController.createClient(req as Request, res as Response);
+
+    expect(mockHandle).toHaveBeenCalled();
+    const [response] = mockHandle.mock.calls[0] as any;
+    expect(response.success).toBe(true);
+    expect(response.message).toBe("Client created successfully");
+  });
+
   it("should handle client creation error (clientError or null client)", async () => {
     (ClientModel.create as jest.Mock).mockResolvedValue({
       data: null,
