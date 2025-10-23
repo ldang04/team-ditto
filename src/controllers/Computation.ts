@@ -4,6 +4,7 @@ import { ContentModel } from "../models/ContentModel";
 import { ProjectModel } from "../models/ProjectModel";
 import { ThemeModel } from "../models/ThemeModel";
 import { EmbeddingsModel } from "../models/EmbeddingsModel";
+import { EmbeddingService } from "../services/EmbeddingService";
 import "dotenv/config";
 
 export const ComputationController = {
@@ -122,7 +123,7 @@ export const ComputationController = {
         }
 
         // generate and store embeddings
-        await ComputationController.generateEmbedding(data.id, variantContent);
+        await EmbeddingService.generateAndStore(data.id, variantContent);
 
         savedVariants.push({
           content_id: data.id,
@@ -154,123 +155,6 @@ export const ComputationController = {
     }
   },
 
-  /**
-   * Generate text embedding using Vertex AI
-   */
-  async generateEmbedding(contentId: string, text: string): Promise<number[]> {
-    try {
-      const vertex = new VertexAI({ 
-        project: process.env.GCP_PROJECT_ID,
-        location: "us-central1"
-      });
-      
-      const model = vertex.getGenerativeModel({
-        model: "text-embedding-004",
-      });
-
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text }] }],
-      });
-
-      // Extract embedding from response
-      // Note: The actual response structure may vary, adjust as needed
-      const embedding = result.response.candidates?.[0]?.content?.parts?.[0]?.text || [];
-      
-      // For text-embedding-004, we need to use a different API
-      // Let's use a simple approach: hash the text into a vector for now
-      // TODO: Replace with proper Vertex AI Embeddings API call
-      const embeddingVector = this.textToEmbedding(text);
-      
-      // Store in database
-      await EmbeddingsModel.create({
-        content_id: contentId,
-        embedding: embeddingVector,
-        text_content: text
-      });
-
-      return embeddingVector;
-    } catch (error) {
-      console.warn("Failed to generate/store embedding:", error);
-      return [];
-    }
-  },
-
-  /**
-   * Simple text to embedding conversion (deterministic)
-   * This creates a 384-dimensional vector based on text characteristics
-   */
-  textToEmbedding(text: string): number[] {
-    const dimensions = 384;
-    const embedding = new Array(dimensions).fill(0);
-    
-    // Normalize text
-    const normalized = text.toLowerCase().trim();
-    
-    // Create features based on text characteristics
-    const words = normalized.split(/\s+/);
-    const chars = normalized.split('');
-    
-    // Feature 1: Word-based features
-    words.forEach((word, idx) => {
-      const hash = this.hashString(word);
-      const position = hash % dimensions;
-      embedding[position] += 1 / (idx + 1);
-    });
-    
-    // Feature 2: Character n-grams
-    for (let i = 0; i < chars.length - 2; i++) {
-      const trigram = chars.slice(i, i + 3).join('');
-      const hash = this.hashString(trigram);
-      const position = hash % dimensions;
-      embedding[position] += 0.5;
-    }
-    
-    // Feature 3: Length and structure features
-    embedding[0] = words.length / 100; // Normalized word count
-    embedding[1] = chars.length / 1000; // Normalized char count
-    embedding[2] = (text.match(/[.!?]/g) || []).length / 10; // Sentence count
-    
-    // Normalize the embedding vector
-    const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => magnitude > 0 ? val / magnitude : 0);
-  },
-
-  /**
-   * Simple hash function for strings
-   */
-  hashString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
-  },
-
-  /**
-   * Calculate cosine similarity between two vectors
-   */
-  cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length) return 0;
-    
-    let dotProduct = 0;
-    let magA = 0;
-    let magB = 0;
-    
-    for (let i = 0; i < vecA.length; i++) {
-      dotProduct += vecA[i] * vecB[i];
-      magA += vecA[i] * vecA[i];
-      magB += vecB[i] * vecB[i];
-    }
-    
-    magA = Math.sqrt(magA);
-    magB = Math.sqrt(magB);
-    
-    if (magA === 0 || magB === 0) return 0;
-    
-    return dotProduct / (magA * magB);
-  },
 
   /**
    * Validate content against brand guidelines using embedding similarity
@@ -314,7 +198,7 @@ export const ComputationController = {
           contentEmbedding = embeddingData[0].embedding;
         } else {
           // Generate new embedding
-          contentEmbedding = await this.generateEmbedding(content_id, textContent);
+          contentEmbedding = await EmbeddingService.generateAndStore(content_id, textContent);
         }
         
         // Fetch project and theme
@@ -347,7 +231,7 @@ export const ComputationController = {
         themeData = theme;
 
         // Generate embedding for new content (without storing)
-        contentEmbedding = this.textToEmbedding(textContent);
+        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(textContent);
       }
 
       // Build brand reference texts
@@ -360,11 +244,13 @@ export const ComputationController = {
       ];
 
       // Generate embeddings for brand references
-      const brandEmbeddings = brandTexts.map(text => this.textToEmbedding(text));
+      const brandEmbeddings = await Promise.all(
+        brandTexts.map(text => EmbeddingService.generateDocumentEmbedding(text))
+      );
 
       // Calculate similarity scores with each brand reference
       const similarityScores = brandEmbeddings.map(brandEmb => 
-        this.cosineSimilarity(contentEmbedding, brandEmb)
+        EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
       );
 
       // Average similarity as brand consistency score
@@ -528,3 +414,4 @@ export const ComputationController = {
     return Math.max(0, Math.min(100, score));
   }
 };
+
