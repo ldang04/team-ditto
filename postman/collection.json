@@ -1,34 +1,971 @@
 {
   "info": {
-    "name": "Team Ditto API Tests",
-    "description": "API tests for Team Ditto application",
+    "name": "Team Ditto API Tests - Comprehensive",
+    "description": "Comprehensive API tests for Team Ditto application covering all major endpoints with valid, invalid, and edge case testing",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Create Client",
+      "name": "Client Management",
+      "item": [
+        {
+          "name": "Create Client - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData).to.have.property('success', true);",
+                  "});",
+                  "",
+                  "pm.test('Response includes client_id', () => {",
+                  "    pm.expect(jsonData.data).to.have.property('client_id');",
+                  "});",
+                  "",
+                  "pm.test('Response includes api_key', () => {",
+                  "    pm.expect(jsonData.data).to.have.property('api_key');",
+                  "});",
+                  "",
+                  "pm.test('Success message is correct', () => {",
+                  "    pm.expect(jsonData.message).to.equal('Client created successfully');",
+                  "});",
+                  "",
+                  "// Save the API key for subsequent tests",
+                  "if (jsonData.data && jsonData.data.api_key) {",
+                  "    pm.environment.set('apiKey', jsonData.data.api_key);",
+                  "    pm.environment.set('clientId', jsonData.data.client_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Client\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/clients/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "clients", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Client - Missing Name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 400 or 500', () => {",
+                  "    pm.expect([400, 500]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag set to false', () => {",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Client without name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/clients/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "clients", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Client - Empty Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 or 500', () => {",
+                  "    pm.expect([400, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
         "url": {
           "raw": "{{baseUrl}}/api/clients/create",
           "host": ["{{baseUrl}}"],
-          "path": ["api", "clients/create"]
+              "path": ["api", "clients", "create"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Project Management",
+      "item": [
+        {
+          "name": "Create Project - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Response includes project id', () => {",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "});",
+                  "",
+                  "pm.test('Project name matches request', () => {",
+                  "    pm.expect(jsonData.data.name).to.equal('Marketing Campaign');",
+                  "});",
+                  "",
+                  "// Save project ID for subsequent tests",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set('projectId', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Marketing Campaign\",\n  \"description\": \"A test campaign for our new product launch\",\n  \"goals\": \"Increase brand awareness and drive sales\",\n  \"customer_type\": \"tech-savvy professionals\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
         },
+        {
+          "name": "Create Project - Missing Name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 400', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag set to false', () => {",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Error message mentions required fields', () => {",
+                  "    pm.expect(jsonData.message).to.include('required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Project without name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Project - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag set to false', () => {",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Error message mentions API key', () => {",
+                  "    pm.expect(jsonData.message.toLowerCase()).to.include('api key');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Unauthorized Project\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
+        },
+        {
+          "name": "List Projects - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Response contains data array or object', () => {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "List Projects - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Update Project - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Updated name is correct', () => {",
+                  "    pm.expect(jsonData.data.name).to.equal('Updated Campaign Name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Test Client\"\n}"
+              "raw": "{\n  \"name\": \"Updated Campaign Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            }
+          }
         }
-      },
+      ]
+    },
+    {
+      "name": "Theme Management",
+      "item": [
+        {
+          "name": "Create Theme - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 201', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Response includes theme id', () => {",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "});",
+                  "",
+                  "// Save theme ID",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set('themeId', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Modern Tech Theme\",\n  \"tags\": [\"modern\", \"tech\", \"clean\"],\n  \"inspirations\": [\"Apple\", \"Google\", \"Stripe\"],\n  \"font\": \"Roboto\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/themes/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "themes", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Theme - Missing Name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Status code is 400', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag set to false', () => {",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"font\": \"Arial\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/themes/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "themes", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Theme - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Unauthorized Theme\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/themes/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "themes", "create"]
+            }
+          }
+        },
+        {
+          "name": "List Themes - Valid",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
               "const jsonData = pm.response.json();",
-              "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
-              "pm.test('Response includes client_id', () => pm.expect(jsonData.data).to.have.property('client_id'));"
-            ]
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', () => {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/themes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "themes"]
+            }
+          }
+        },
+        {
+          "name": "List Themes - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/themes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "themes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Content Management",
+      "item": [
+        {
+          "name": "List Contents - Valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 500', () => {",
+                  "    pm.expect([200, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/contents/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "contents", "{{projectId}}"]
+            }
+          }
+        },
+        {
+          "name": "List Contents - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/contents/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "contents", "{{projectId}}"]
+            }
+          }
+        },
+        {
+          "name": "List Contents - Invalid Project ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 or 500', () => {",
+                  "    pm.expect([404, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/contents/invalid-uuid-123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "contents", "invalid-uuid-123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Content Generation",
+      "item": [
+        {
+          "name": "Generate Content - Valid (Basic)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Note: This may take time due to AI generation",
+                  "pm.test('Status code is 200 or 201', () => {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"prompt\": \"Create a professional product announcement\",\n  \"num_variants\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Generate Content - Missing Project ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Generate without project ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Generate Content - Missing Prompt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Generate Content - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"prompt\": \"Unauthorized generation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Content Validation",
+      "item": [
+        {
+          "name": "Validate Content - With Content Text",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Our innovative tech solution provides modern features for professionals\",\n  \"project_id\": \"{{projectId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Validate Content - Missing Content",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 or 500', () => {",
+                  "    pm.expect([400, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Validate Content - No Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Unauthorized validation test\",\n  \"project_id\": \"{{projectId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Vertex AI Test - Public",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 500', () => {",
+                  "    pm.expect([200, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vertex-test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vertex-test"]
+            }
           }
         }
       ]
@@ -37,7 +974,8 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3000"
+      "value": "http://localhost:3000",
+      "type": "string"
     }
   ]
 }

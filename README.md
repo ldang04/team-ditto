@@ -1,5 +1,310 @@
 # Team Ditto - AI-Powered Content Generation API
 
+An intelligent API service that generates and validates marketing content using AI. Built with TypeScript, Express, Supabase, and Google Cloud Vertex AI.
+
+## Table of Contents
+- [Getting Started](#getting-started)
+- [API Documentation](#api-documentation)
+- [Style Checker](#style-checker)
+- [Tools & Testing](#tools--testing)
+- [AI Citations](#ai-citations)
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed and configured:
+
+- **Node.js** (v16 or higher)
+- **npm** (comes with Node.js)
+- **Supabase Account** - For database and authentication
+- **Google Cloud Platform Account** - With Vertex AI API enabled
+
+### Environment Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/ldang04/team-ditto.git
+   cd team-ditto
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Create environment file:**
+   
+   Create a `.env` file in the project root with the following variables:
+   ```env
+   # Supabase Configuration
+   SUPABASE_URL=your-supabase-project-url
+   SUPABASE_SERVICE_KEY=your-supabase-service-role-key
+   
+   # Google Cloud Platform Configuration
+   GCP_PROJECT_ID=your-gcp-project-id
+   VERTEX_MODEL_TEXT=gemini-2.5-flash-lite
+   
+   # Server Configuration (optional)
+   PORT=3000
+   ```
+
+4. **Set up Google Cloud credentials:**
+   
+   Place your GCP service account JSON file in the project root as `gcp-service-account.json` (this file is gitignored for security).
+   
+   Alternatively, authenticate using:
+   ```bash
+   gcloud auth application-default login
+   ```
+
+5. **Set up Supabase database:**
+   
+   Your Supabase database should have the following tables:
+   - `clients` - Client organizations
+   - `api_keys` - API keys for authentication
+   - `projects` - Marketing projects
+   - `themes` - Brand themes
+   - `contents` - Generated content
+   - `embeddings` - Vector embeddings for content validation
+   
+   See the Supabase schema in your project dashboard or contact your team for the schema file.
+
+### Build
+
+Compile TypeScript to JavaScript:
+
+```bash
+npm run build
+```
+
+This creates compiled JavaScript files in the `dist/` directory.
+
+### Run the Application
+
+#### Development Mode (with auto-reload):
+```bash
+npm start
+```
+
+This runs the server using `ts-node-dev` which automatically reloads on file changes.
+
+#### Production Mode:
+```bash
+npm run build
+npm run start:prod
+```
+
+The server will start on `http://localhost:3000` (or the PORT specified in your `.env` file).
+
+#### Verify the server is running:
+```bash
+curl http://localhost:3000/api/vertex-test
+```
+
+### Run Tests
+
+#### Unit Tests:
+```bash
+# Run all unit tests
+npm test
+
+# Run with coverage report
+npm run test:unit
+
+# Run with JUnit XML output (for CI/CD)
+npm run test:unit:junit
+```
+
+#### API Tests:
+**Note:** The server must be running for API tests to work.
+
+In one terminal:
+```bash
+npm start
+```
+
+In another terminal:
+```bash
+npm run api:test
+```
+
+#### Generate All Reports:
+```bash
+npm run reports:all
+```
+
+This generates:
+- Unit test results
+- Coverage reports
+- API test results
+- Coverage summary
+
+### Project Structure
+
+```
+team-ditto/
+├── src/                      # Source code
+│   ├── controllers/          # Request handlers
+│   ├── models/              # Database models
+│   ├── routes/              # API routes
+│   ├── services/            # Business logic (e.g., EmbeddingService)
+│   ├── middleware/          # Authentication middleware
+│   ├── config/              # Configuration (Supabase client)
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
+│   ├── app.ts               # Express app configuration
+│   └── index.ts             # Server entry point
+├── tests/                    # Test files
+├── postman/                  # Postman collection and environment
+├── reports/                  # Generated test reports
+├── dist/                     # Compiled JavaScript (gitignored)
+├── coverage/                 # Coverage reports (gitignored)
+├── __mocks__/                # Jest mocks for testing
+├── package.json              # Dependencies and scripts
+├── tsconfig.json            # TypeScript configuration
+├── jest.config.ts           # Jest configuration
+├── eslint.config.js         # ESLint configuration
+└── README.md                # This file
+```
+
+---
+
+## API Documentation
+
+### Authentication
+
+**Most endpoints require API key authentication.** Include your API key in the `Authorization` header:
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+**How to get an API key:**
+1. First, call `/api/clients/create` (no auth required) to create a client
+2. You'll receive an API key in the response - **save it immediately!**
+3. Use that API key in the `Authorization` header for all other endpoints
+
+### Endpoints Overview
+
+#### Public Endpoints (No Authentication Required)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/clients/create` | **Start here!** Create a new client and get an API key |
+| GET | `/api/vertex-test` | Test Vertex AI connection |
+
+#### Protected Endpoints (Require Authentication)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **Projects** |||
+| POST | `/api/projects/create` | Create a new project |
+| GET | `/api/projects` | List all projects for authenticated client |
+| PUT | `/api/projects/:id` | Update a project |
+| **Themes** |||
+| POST | `/api/themes/create` | Create a new brand theme |
+| GET | `/api/themes` | List all themes for authenticated client |
+| **Contents** |||
+| GET | `/api/contents/:project_id` | List all content for a project |
+| **Generation & Validation** |||
+| POST | `/api/generate` | Generate marketing content with AI |
+| POST | `/api/validate` | Validate content against brand guidelines |
+
+### Detailed API Documentation
+
+For comprehensive API documentation including request/response formats, examples, and error codes, see:
+- **[VALIDATE_API.md](./VALIDATE_API.md)** - Detailed documentation for the `/api/validate` endpoint
+- **[EMBEDDINGS_README.md](./EMBEDDINGS_README.md)** - Explanation of the embedding system used for validation
+
+### Example API Calls
+
+#### 1. Create a Client
+```bash
+curl -X POST http://localhost:3000/api/clients/create \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Company"}'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "client_id": "abc-123",
+    "api_key": "your-api-key-here"
+  },
+  "message": "Client created successfully"
+}
+```
+
+**⚠️ Important:** Save the API key - it's only shown once!
+
+#### 2. Create a Project
+```bash
+curl -X POST http://localhost:3000/api/projects/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "name": "Summer Campaign",
+    "description": "Product launch campaign",
+    "goals": "Increase awareness",
+    "customer_type": "Tech professionals"
+  }'
+```
+
+#### 3. Create a Theme
+```bash
+curl -X POST http://localhost:3000/api/themes/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "name": "Modern Tech",
+    "tags": ["modern", "professional"],
+    "inspirations": ["Apple", "Google"],
+    "font": "Roboto"
+  }'
+```
+
+#### 4. Generate Content
+```bash
+curl -X POST http://localhost:3000/api/generate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "project_id": "your-project-id",
+    "prompt": "Create a product announcement",
+    "num_variants": 3
+  }'
+```
+
+#### 5. Validate Content
+```bash
+curl -X POST http://localhost:3000/api/validate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "content": "Your marketing text here",
+    "project_id": "your-project-id"
+  }'
+```
+
+### Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created successfully |
+| 400 | Bad request (missing required fields) |
+| 401 | Unauthorized (missing or invalid API key) |
+| 403 | Forbidden |
+| 404 | Not found |
+| 500 | Internal server error |
+
+---
+
 ## Style Checker
 
 This project utilizes ESLint as a code style checker to ensure consistency amongst the Typscript code, and to find any bugs.
