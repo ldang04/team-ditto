@@ -258,7 +258,7 @@ export const ComputationController = {
       const brandConsistencyScore = Math.round(avgSimilarity * 100);
 
       // Quality heuristics based on text features
-      const qualityScore = this.calculateQualityScore(textContent);
+      const qualityScore = ComputationController.calculateQualityScore(textContent);
 
       // Overall score: 60% brand consistency, 40% quality
       const overallScore = Math.round(brandConsistencyScore * 0.6 + qualityScore * 0.4);

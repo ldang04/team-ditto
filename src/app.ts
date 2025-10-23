@@ -19,6 +19,15 @@ app.use(express.json());
 // Test route (public)
 app.get("/api/vertex-test", async (req, res) => {
   try {
+    console.log("GCP_PROJECT_ID from env:", process.env.GCP_PROJECT_ID);
+    
+    if (!process.env.GCP_PROJECT_ID) {
+      return res.status(500).json({
+        error: "GCP_PROJECT_ID not set",
+        env_keys: Object.keys(process.env).filter(k => k.includes('GCP') || k.includes('GOOGLE'))
+      });
+    }
+    
     const vertex = new VertexAI({ 
       project: process.env.GCP_PROJECT_ID,
       location: "us-central1"

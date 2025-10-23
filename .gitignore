@@ -5,5 +5,13 @@ node_modules
 .env
 gcp-service-account.json
 
+# Test data with real credentials
+test-data.json
+test-routes.js
+test-validate.js
+
+# Logs
+*.log
+
 # Dist 
 dist/
