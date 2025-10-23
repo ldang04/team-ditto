@@ -6,17 +6,61 @@
   },
   "item": [
     {
-      "name": "Health Check",
+      "name": "Create Client",
       "request": {
-        "method": "GET",
-        "header": [],
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "url": {
-          "raw": "{{baseUrl}}/api/vertex-test",
+          "raw": "{{baseUrl}}/api/clients/create",
           "host": ["{{baseUrl}}"],
-          "path": ["api", "vertex-test"]
+          "path": ["api", "clients/create"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test Client\"\n}"
         }
       },
-      "response": []
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Response includes client_id', () => pm.expect(jsonData.data).to.have.property('client_id'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Project Contents",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{apiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/contents/{{project_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "contents", "{{project_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response indicates success', () => pm.expect(jsonData.success).to.be.true);",
+              "pm.test('Response contains array of contents', () => pm.expect(jsonData.data).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
     }
   ],
   "variable": [

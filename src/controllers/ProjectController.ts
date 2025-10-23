@@ -132,6 +132,7 @@ export const ProjectController = {
         "Updated project successfully",
         StatusCodes.OK
       );
+      return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);

@@ -48,7 +48,7 @@ export const ClientController = {
 
       // Return API key once
       const serviceResponse = ServiceResponse.success(
-        { client_id: client.id },
+        { client_id: client.id, api_key: key },
         "Client created successfully",
         StatusCodes.CREATED
       );
