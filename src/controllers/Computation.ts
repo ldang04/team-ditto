@@ -185,6 +185,8 @@ export const ComputationController = {
   },
 
   /**
+   * CITATION: Function error handling and JSDoc assisted by Cursor.
+   * 
    * Validate content against brand guidelines using embedding similarity
    * Accepts either content_id (for existing content) or content + project_id (for new content)
    */

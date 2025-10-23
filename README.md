@@ -465,3 +465,31 @@ npm run coverage:summary    # Generate coverage summary
 ### AI Citation for Style Checker:
 
 The "lint" lines in the package.json files were created with the help of ChatGPT and documentation reading. The file `eslint.config.js`, which is where all the ESLint settings are, is also cited in the file and was created with the help and guidance of ChatGPT and online documentation. Prompts given were just that of the nature where we explained what we were hoping to achieve with specific settings and asking how we could go about implementing this.
+
+### (Bao's Citations):
+
+**AI Tool Used:** Cursor (student plan - free)
+
+**Content Validation Implementation:**
+- **Files:** `src/controllers/Computation.ts` (validate function), `src/routes/computationRoutes.ts`
+- **Use Case:** Used Cursor to add error handling the `/api/validate` endpoint that compares generated content against brand themes using cosine similarity calculations that i wrote
+- **What AI Generated:** 
+  - Error handling for edge cases (missing params, invalid IDs)
+  - JSDoc comments for the validate function
+
+**API Testing Enhancements:**
+- **Files:** `postman/collection.json`, `README.md`
+- **Use Case:** Used Cursor to expand API test coverage from 25 to 34+ tests
+- **What AI Generated:**
+  - 4 data persistence tests (create → read → update → read)
+  - 5 multi-client isolation tests with separate API keys
+  - Collection-level prerequest scripts for logging documentation
+  - README section explaining how to verify logging during API tests
+
+**Documentation:**
+- **Files:** `README.md` (API Documentation section)
+- **Use Case:** Enhanced API documentation clarity
+- **Prompts:** "Clarify that /api/clients/create is a public endpoint used to obtain API keys"
+- **What AI Generated:** "How to get an API key" section with step-by-step instructions
+
+**Note:** All AI-assisted code was reviewed, tested, and validated before committing. GCP credits for Vertex AI were obtained through Columbia University.
