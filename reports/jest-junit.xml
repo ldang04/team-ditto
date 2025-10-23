@@ -1,25 +1,179 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="8" failures="0" errors="0" time="1.112">
-  <testsuite name="API Endpoints" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:35" time="0.96" tests="2">
-    <testcase classname="API Endpoints GET /api/vertex-test should handle the endpoint (may fail due to missing credentials)" name="API Endpoints GET /api/vertex-test should handle the endpoint (may fail due to missing credentials)" time="0.344">
-    </testcase>
-    <testcase classname="API Endpoints JSON parsing middleware should parse JSON requests" name="API Endpoints JSON parsing middleware should parse JSON requests" time="0.016">
+<testsuites name="jest tests" tests="72" failures="0" errors="0" time="1.435">
+  <testsuite name="ComputationController.generate" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:19" time="0.687" tests="1">
+    <testcase classname="ComputationController.generate should return 400 if project_id or prompt is missing" name="ComputationController.generate should return 400 if project_id or prompt is missing" time="0.002">
     </testcase>
   </testsuite>
-  <testsuite name="Simple API Tests" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:36" time="0.068" tests="3">
-    <testcase classname="Simple API Tests Basic Express functionality should handle GET requests" name="Simple API Tests Basic Express functionality should handle GET requests" time="0.006">
-    </testcase>
-    <testcase classname="Simple API Tests Basic Express functionality should handle POST requests with JSON" name="Simple API Tests Basic Express functionality should handle POST requests with JSON" time="0.005">
-    </testcase>
-    <testcase classname="Simple API Tests Basic Express functionality should handle 404 for unknown routes" name="Simple API Tests Basic Express functionality should handle 404 for unknown routes" time="0.002">
+  <testsuite name="Client API" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:20" time="0.104" tests="1">
+    <testcase classname="Client API should create a client and return an API key" name="Client API should create a client and return an API key" time="0.012">
     </testcase>
   </testsuite>
-  <testsuite name="Jest Setup Test" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:36" time="0.029" tests="3">
-    <testcase classname="Jest Setup Test should run basic Jest tests" name="Jest Setup Test should run basic Jest tests" time="0.001">
+  <testsuite name="ClientController.createClient" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:20" time="0.024" tests="3">
+    <testcase classname="ClientController.createClient should handle client creation error (clientError or null client)" name="ClientController.createClient should handle client creation error (clientError or null client)" time="0.008">
     </testcase>
-    <testcase classname="Jest Setup Test should handle async operations" name="Jest Setup Test should handle async operations" time="0">
+    <testcase classname="ClientController.createClient should handle API key creation error (keyErr)" name="ClientController.createClient should handle API key creation error (keyErr)" time="0.001">
     </testcase>
-    <testcase classname="Jest Setup Test should handle arrays and objects" name="Jest Setup Test should handle arrays and objects" time="0.001">
+    <testcase classname="ClientController.createClient should handle unexpected runtime error (catch block)" name="ClientController.createClient should handle unexpected runtime error (catch block)" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="authMiddleware" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:20" time="0.04" tests="5">
+    <testcase classname="authMiddleware should return 401 if Authorization header is missing" name="authMiddleware should return 401 if Authorization header is missing" time="0.003">
+    </testcase>
+    <testcase classname="authMiddleware should return 403 if keyRecord has no id" name="authMiddleware should return 403 if keyRecord has no id" time="0.003">
+    </testcase>
+    <testcase classname="authMiddleware should return 403 if ApiKeyModel.list returns error" name="authMiddleware should return 403 if ApiKeyModel.list returns error" time="0.001">
+    </testcase>
+    <testcase classname="authMiddleware should return 403 if bcrypt.compare fails" name="authMiddleware should return 403 if bcrypt.compare fails" time="0.002">
+    </testcase>
+    <testcase classname="authMiddleware should call next() when key is valid" name="authMiddleware should call next() when key is valid" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="Content API" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:20" time="0.053" tests="3">
+    <testcase classname="Content API should list contents for a valid project" name="Content API should list contents for a valid project" time="0.003">
+    </testcase>
+    <testcase classname="Content API should fail if project_id is missing" name="Content API should fail if project_id is missing" time="0.002">
+    </testcase>
+    <testcase classname="Content API should return 401 if no API key provided" name="Content API should return 401 if no API key provided" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="Project API" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:20" time="0.051" tests="6">
+    <testcase classname="Project API should create a new project for authenticated client" name="Project API should create a new project for authenticated client" time="0.002">
+    </testcase>
+    <testcase classname="Project API should fail to create a project when name is missing" name="Project API should fail to create a project when name is missing" time="0.001">
+    </testcase>
+    <testcase classname="Project API should list all projects for the authenticated client" name="Project API should list all projects for the authenticated client" time="0.001">
+    </testcase>
+    <testcase classname="Project API should return 401 if no API key is provided" name="Project API should return 401 if no API key is provided" time="0.001">
+    </testcase>
+    <testcase classname="Project API should update an existing project" name="Project API should update an existing project" time="0.001">
+    </testcase>
+    <testcase classname="Project API should return 404 when trying to update without project ID" name="Project API should return 404 when trying to update without project ID" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="Theme API" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.048" tests="4">
+    <testcase classname="Theme API should create a new theme for authenticated client" name="Theme API should create a new theme for authenticated client" time="0.001">
+    </testcase>
+    <testcase classname="Theme API should fail to create a theme with missing name" name="Theme API should fail to create a theme with missing name" time="0.004">
+    </testcase>
+    <testcase classname="Theme API should list all themes for the authenticated client" name="Theme API should list all themes for the authenticated client" time="0.001">
+    </testcase>
+    <testcase classname="Theme API should return 401 when API key is missing" name="Theme API should return 401 when API key is missing" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="ComputationController.testVertex" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.033" tests="3">
+    <testcase classname="ComputationController.testVertex should return failure if GCP_PROJECT_ID is missing" name="ComputationController.testVertex should return failure if GCP_PROJECT_ID is missing" time="0.006">
+    </testcase>
+    <testcase classname="ComputationController.testVertex should successfully generate response from Vertex AI" name="ComputationController.testVertex should successfully generate response from Vertex AI" time="0">
+    </testcase>
+    <testcase classname="ComputationController.testVertex should handle Vertex AI generation failure gracefully" name="ComputationController.testVertex should handle Vertex AI generation failure gracefully" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="Supabase Client Initialization" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.047" tests="3">
+    <testcase classname="Supabase Client Initialization should throw error if SUPABASE_URL is missing" name="Supabase Client Initialization should throw error if SUPABASE_URL is missing" time="0.016">
+    </testcase>
+    <testcase classname="Supabase Client Initialization should throw error if SUPABASE_SERVICE_KEY is missing" name="Supabase Client Initialization should throw error if SUPABASE_SERVICE_KEY is missing" time="0.006">
+    </testcase>
+    <testcase classname="Supabase Client Initialization should create Supabase client successfully when env vars are set" name="Supabase Client Initialization should create Supabase client successfully when env vars are set" time="0.007">
+    </testcase>
+  </testsuite>
+  <testsuite name="ContentController.list" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.018" tests="4">
+    <testcase classname="ContentController.list should handle missing project_id (400)" name="ContentController.list should handle missing project_id (400)" time="0">
+    </testcase>
+    <testcase classname="ContentController.list should handle model error (throws inside try)" name="ContentController.list should handle model error (throws inside try)" time="0.003">
+    </testcase>
+    <testcase classname="ContentController.list should handle unexpected error (catch block)" name="ContentController.list should handle unexpected error (catch block)" time="0">
+    </testcase>
+    <testcase classname="ContentController.list should return success when data is retrieved" name="ContentController.list should return success when data is retrieved" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="ProjectController" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.02" tests="8">
+    <testcase classname="ProjectController create should throw if model returns error or null data" name="ProjectController create should throw if model returns error or null data" time="0.001">
+    </testcase>
+    <testcase classname="ProjectController create should hit catch block when rejected" name="ProjectController create should hit catch block when rejected" time="0">
+    </testcase>
+    <testcase classname="ProjectController listByClient should handle missing client_id (Unauthorized)" name="ProjectController listByClient should handle missing client_id (Unauthorized)" time="0">
+    </testcase>
+    <testcase classname="ProjectController listByClient should handle model error (throws)" name="ProjectController listByClient should handle model error (throws)" time="0.004">
+    </testcase>
+    <testcase classname="ProjectController listByClient should hit catch block when rejected" name="ProjectController listByClient should hit catch block when rejected" time="0">
+    </testcase>
+    <testcase classname="ProjectController update should handle missing id param" name="ProjectController update should handle missing id param" time="0">
+    </testcase>
+    <testcase classname="ProjectController update should handle model error" name="ProjectController update should handle model error" time="0.002">
+    </testcase>
+    <testcase classname="ProjectController update should hit catch block when rejected" name="ProjectController update should hit catch block when rejected" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="Server startup (index.ts)" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.013" tests="2">
+    <testcase classname="Server startup (index.ts) should start server on default port 3000" name="Server startup (index.ts) should start server on default port 3000" time="0.001">
+    </testcase>
+    <testcase classname="Server startup (index.ts) should start server on custom PORT if provided" name="Server startup (index.ts) should start server on custom PORT if provided" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="ThemeController" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.029" tests="8">
+    <testcase classname="ThemeController create() should create a theme successfully" name="ThemeController create() should create a theme successfully" time="0.001">
+    </testcase>
+    <testcase classname="ThemeController create() should return 400 if name is missing" name="ThemeController create() should return 400 if name is missing" time="0">
+    </testcase>
+    <testcase classname="ThemeController create() should handle ThemeModel.create error" name="ThemeController create() should handle ThemeModel.create error" time="0.007">
+    </testcase>
+    <testcase classname="ThemeController create() should handle unexpected exception in create()" name="ThemeController create() should handle unexpected exception in create()" time="0.003">
+    </testcase>
+    <testcase classname="ThemeController listByClient() should list themes successfully" name="ThemeController listByClient() should list themes successfully" time="0">
+    </testcase>
+    <testcase classname="ThemeController listByClient() should return 401 if client_id is missing" name="ThemeController listByClient() should return 401 if client_id is missing" time="0">
+    </testcase>
+    <testcase classname="ThemeController listByClient() should handle ThemeModel.listByClient error" name="ThemeController listByClient() should handle ThemeModel.listByClient error" time="0">
+    </testcase>
+    <testcase classname="ThemeController listByClient() should catch unexpected exception in listByClient()" name="ThemeController listByClient() should catch unexpected exception in listByClient()" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="ServiceResponse" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.013" tests="4">
+    <testcase classname="ServiceResponse should create a success response with defaults" name="ServiceResponse should create a success response with defaults" time="0.001">
+    </testcase>
+    <testcase classname="ServiceResponse should create a success response with custom status code" name="ServiceResponse should create a success response with custom status code" time="0">
+    </testcase>
+    <testcase classname="ServiceResponse should create a failure response with default message and code" name="ServiceResponse should create a failure response with default message and code" time="0">
+    </testcase>
+    <testcase classname="ServiceResponse should create a failure response with custom message and code" name="ServiceResponse should create a failure response with custom message and code" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="EmbeddingService" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.02" tests="10">
+    <testcase classname="EmbeddingService should initialize with GoogleAuth and project ID" name="EmbeddingService should initialize with GoogleAuth and project ID" time="0.001">
+    </testcase>
+    <testcase classname="EmbeddingService should generate document embedding successfully" name="EmbeddingService should generate document embedding successfully" time="0">
+    </testcase>
+    <testcase classname="EmbeddingService should use fallback when no embedding returned" name="EmbeddingService should use fallback when no embedding returned" time="0.003">
+    </testcase>
+    <testcase classname="EmbeddingService should generate query embedding successfully" name="EmbeddingService should generate query embedding successfully" time="0">
+    </testcase>
+    <testcase classname="EmbeddingService should generate and store embedding successfully" name="EmbeddingService should generate and store embedding successfully" time="0.001">
+    </testcase>
+    <testcase classname="EmbeddingService should handle failure in generateAndStore" name="EmbeddingService should handle failure in generateAndStore" time="0">
+    </testcase>
+    <testcase classname="EmbeddingService should return correct cosine similarity" name="EmbeddingService should return correct cosine similarity" time="0.001">
+    </testcase>
+    <testcase classname="EmbeddingService should handle different lengths or zero magnitudes" name="EmbeddingService should handle different lengths or zero magnitudes" time="0">
+    </testcase>
+    <testcase classname="EmbeddingService should generate deterministic fallback embedding" name="EmbeddingService should generate deterministic fallback embedding" time="0.001">
+    </testcase>
+    <testcase classname="EmbeddingService should hash strings deterministically" name="EmbeddingService should hash strings deterministically" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="ComputationController.calculateQualityScore" errors="0" failures="0" skipped="0" timestamp="2025-10-23T09:18:21" time="0.023" tests="7">
+    <testcase classname="ComputationController.calculateQualityScore should give higher score for well-structured, professional text" name="ComputationController.calculateQualityScore should give higher score for well-structured, professional text" time="0">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should reduce score for very short text" name="ComputationController.calculateQualityScore should reduce score for very short text" time="0.001">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should reduce score for all-caps shouting" name="ComputationController.calculateQualityScore should reduce score for all-caps shouting" time="0">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should penalize for too many exclamation marks" name="ComputationController.calculateQualityScore should penalize for too many exclamation marks" time="0">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should handle empty string" name="ComputationController.calculateQualityScore should handle empty string" time="0">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should cap the score at 100 and not exceed it" name="ComputationController.calculateQualityScore should cap the score at 100 and not exceed it" time="0.001">
+    </testcase>
+    <testcase classname="ComputationController.calculateQualityScore should floor the score at 0 and not go negative" name="ComputationController.calculateQualityScore should floor the score at 0 and not go negative" time="0">
     </testcase>
   </testsuite>
 </testsuites>

@@ -42,17 +42,8 @@ export async function authMiddleware(
   // Fetch the key record from Supabase using prefix with active status
   const { data: keyRecord, error } = await ApiKeyModel.list(prefix);
 
-  if (!keyRecord?.id) {
-    serviceResponse = ServiceResponse.failure(
-      null,
-      "Unauthorized",
-      StatusCodes.UNAUTHORIZED
-    );
-    return handleServiceResponse(serviceResponse, res);
-  }
-
   // If key not found, deny access
-  if (error || !keyRecord) {
+  if (error || !keyRecord || !keyRecord.id) {
     serviceResponse = ServiceResponse.failure(
       null,
       "Invalid API key",
