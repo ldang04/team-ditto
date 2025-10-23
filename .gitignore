@@ -7,3 +7,6 @@ gcp-service-account.json
 
 # Dist 
 dist/
+
+# Testing & Coverage
+coverage/

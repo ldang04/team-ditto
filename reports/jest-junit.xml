@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="8" failures="0" errors="0" time="1.112">
+  <testsuite name="API Endpoints" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:35" time="0.96" tests="2">
+    <testcase classname="API Endpoints GET /api/vertex-test should handle the endpoint (may fail due to missing credentials)" name="API Endpoints GET /api/vertex-test should handle the endpoint (may fail due to missing credentials)" time="0.344">
+    </testcase>
+    <testcase classname="API Endpoints JSON parsing middleware should parse JSON requests" name="API Endpoints JSON parsing middleware should parse JSON requests" time="0.016">
+    </testcase>
+  </testsuite>
+  <testsuite name="Simple API Tests" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:36" time="0.068" tests="3">
+    <testcase classname="Simple API Tests Basic Express functionality should handle GET requests" name="Simple API Tests Basic Express functionality should handle GET requests" time="0.006">
+    </testcase>
+    <testcase classname="Simple API Tests Basic Express functionality should handle POST requests with JSON" name="Simple API Tests Basic Express functionality should handle POST requests with JSON" time="0.005">
+    </testcase>
+    <testcase classname="Simple API Tests Basic Express functionality should handle 404 for unknown routes" name="Simple API Tests Basic Express functionality should handle 404 for unknown routes" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="Jest Setup Test" errors="0" failures="0" skipped="0" timestamp="2025-10-22T22:01:36" time="0.029" tests="3">
+    <testcase classname="Jest Setup Test should run basic Jest tests" name="Jest Setup Test should run basic Jest tests" time="0.001">
+    </testcase>
+    <testcase classname="Jest Setup Test should handle async operations" name="Jest Setup Test should handle async operations" time="0">
+    </testcase>
+    <testcase classname="Jest Setup Test should handle arrays and objects" name="Jest Setup Test should handle arrays and objects" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>

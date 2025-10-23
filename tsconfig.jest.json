@@ -1,27 +1,26 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
     "esModuleInterop": true,
     "moduleResolution": "node",
     "strict": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "allowImportingTsExtensions": false,
-    "noEmit": false,
     "skipLibCheck": true,
     "typeRoots": ["./src/types", "./node_modules/@types"],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["src/**/*"],
-  "ts-node": {
-    "esm": false
-  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
   "exclude": [
-    "tests",
+    "node_modules",
+    "dist",
     "coverage",
-    "reports",
-    "postman",
-    "dist"
+    "reports"
   ]
 }
