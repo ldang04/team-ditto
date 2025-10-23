@@ -6,47 +6,65 @@ import { ThemeModel } from "../models/ThemeModel";
 import { EmbeddingsModel } from "../models/EmbeddingsModel";
 import { EmbeddingService } from "../services/EmbeddingService";
 import "dotenv/config";
+import { ServiceResponse } from "../types/serviceResponse";
+import { StatusCodes } from "http-status-codes";
+import { handleServiceResponse } from "../utils/httpHandlers";
 
 export const ComputationController = {
   async generate(req: Request, res: Response) {
     try {
-      const { 
-        project_id, 
-        prompt, 
+      const {
+        project_id,
+        prompt,
         media_type = "text", // default
         style_preferences = {},
         target_audience = "general",
-        variantCount = 3
+        variantCount = 3,
       } = req.body;
 
+      let serviceResponse;
+
       if (!project_id || !prompt) {
-        return res.status(400).json({ 
-          error: "Missing required fields: project_id and prompt" 
-        });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Missing required fields: project_id and prompt",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       // Fetch project data for brand memory
-      const { data: project, error: projectError } = await ProjectModel.getById(project_id);
+      const { data: project, error: projectError } = await ProjectModel.getById(
+        project_id
+      );
       if (projectError || !project) {
-        return res.status(404).json({ 
-          error: "Project not found" 
-        });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Project not found",
+          StatusCodes.NOT_FOUND
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       // Fetch theme data for brand memory
-      const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
+      const { data: theme, error: themeError } = await ThemeModel.getById(
+        project.theme_id
+      );
       if (themeError || !theme) {
-        return res.status(404).json({ 
-          error: "Theme not found" 
-        });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Theme not found",
+          StatusCodes.NOT_FOUND
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       // Initialize Vertex AI
-      const vertex = new VertexAI({ 
+      const vertex = new VertexAI({
         project: process.env.GCP_PROJECT_ID,
-        location: "us-central1"
+        location: "us-central1",
       });
-      
+
       const model = vertex.getGenerativeModel({
         model: process.env.VERTEX_MODEL_TEXT || "gemini-2.5-flash-lite",
       });
@@ -65,8 +83,8 @@ export const ComputationController = {
         THEME & BRAND:
         - Theme Name: ${theme.name}
         - Font: ${theme.font}
-        - Tags: ${theme.tags.join(', ')}
-        - Inspirations: ${theme.inspirations.join(', ')}
+        - Tags: ${theme.tags.join(", ")}
+        - Inspirations: ${theme.inspirations.join(", ")}
         
         GENERATION REQUIREMENTS:
         - User Prompt: ${prompt}
@@ -80,28 +98,38 @@ export const ComputationController = {
       `;
 
       const result = await model.generateContent({
-        contents: [{ 
-          role: "user", 
-          parts: [{ text: enhancedPrompt }] 
-        }],
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: enhancedPrompt }],
+          },
+        ],
       });
 
-      const generatedText = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated";
-      
+      const generatedText =
+        result.response.candidates?.[0]?.content?.parts?.[0]?.text ||
+        "No content generated";
+
       // parse variants from the response - use regex to separate content.
       const variantRegex = /---VARIANT_START---(.*?)---VARIANT_END---/gs;
       const matches = generatedText.match(variantRegex);
-      
+
       let variants = [];
       if (matches && matches.length > 0) {
         // extract content from each variant
-        variants = matches.map(match => 
-          match.replace(/---VARIANT_START---/g, '').replace(/---VARIANT_END---/g, '').trim()
+        variants = matches.map((match) =>
+          match
+            .replace(/---VARIANT_START---/g, "")
+            .replace(/---VARIANT_END---/g, "")
+            .trim()
         );
       } else {
         // fallback: split by common separators or use the whole text
-        const fallbackVariants = generatedText.split('\n\n').filter(v => v.trim().length > 0);
-        variants = fallbackVariants.length > 0 ? fallbackVariants : [generatedText];
+        const fallbackVariants = generatedText
+          .split("\n\n")
+          .filter((v) => v.trim().length > 0);
+        variants =
+          fallbackVariants.length > 0 ? fallbackVariants : [generatedText];
       }
 
       // ensure we don't exceed the requested variant count
@@ -116,7 +144,7 @@ export const ComputationController = {
           media_url: "", // TODO: add media url when file storage is implemented
           text_content: variantContent,
         });
-        
+
         if (error) {
           console.error("Database save error:", error);
           continue; // if a particular variant fails, continue with others
@@ -127,34 +155,32 @@ export const ComputationController = {
 
         savedVariants.push({
           content_id: data.id,
-          generated_content: variantContent
+          generated_content: variantContent,
         });
       }
 
       if (savedVariants.length === 0) {
-        return res.status(500).json({ 
-          error: "Failed to save any content variants to database"
-        });
+        throw Error("Failed to save any content variants to database");
       }
-      
-      res.json({
-        success: true,
-        variants: savedVariants,
-        project_id,
-        media_type,
-        variant_count: savedVariants.length,
-        timestamp: new Date().toISOString(),
-      });
 
+      serviceResponse = ServiceResponse.success(
+        {
+          success: true,
+          variants: savedVariants,
+          project_id,
+          media_type,
+          variant_count: savedVariants.length,
+          timestamp: new Date().toISOString(),
+        },
+        "Content generated successfully",
+        StatusCodes.CREATED
+      );
     } catch (error: any) {
       console.error("Generate error:", error);
-      res.status(500).json({ 
-        error: "Content generation failed", 
-        details: error.message || "Unknown error"
-      });
+      const serviceResponse = ServiceResponse.failure(error);
+      return handleServiceResponse(serviceResponse, res);
     }
   },
-
 
   /**
    * Validate content against brand guidelines using embedding similarity
@@ -164,104 +190,134 @@ export const ComputationController = {
     try {
       const { content_id, content, project_id } = req.body;
 
+      let serviceResponse;
+
       // Validate input: need either content_id OR (content + project_id)
       if (!content_id && (!content || !project_id)) {
-        return res.status(400).json({ 
-          error: "Must provide either content_id OR (content + project_id)" 
-        });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Must provide either content_id OR (content + project_id)",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
+      let projectId: string;
       let textContent: string;
-      let projectData: any;
-      let themeData: any;
       let contentEmbedding: number[];
 
       // Scenario 1: Validate existing content by ID
       if (content_id) {
         // Fetch content from database
-        const { supabase } = await import("../config/supabaseClient");
-        const { data: existingContent, error: fetchError } = await supabase
-          .from("contents")
-          .select("*")
-          .eq("id", content_id)
-          .single();
+        const { data: existingContent, error: fetchError } =
+          await ContentModel.getById(content_id);
 
         if (fetchError || !existingContent) {
-          return res.status(404).json({ error: "Content not found" });
+          serviceResponse = ServiceResponse.failure(
+            null,
+            "Content not found",
+            StatusCodes.NOT_FOUND
+          );
+          return handleServiceResponse(serviceResponse, res);
         }
 
         textContent = existingContent.text_content;
-        
+
         // Try to get existing embedding
-        const { data: embeddingData } = await EmbeddingsModel.getByContentId(content_id);
-        if (embeddingData && embeddingData.length > 0 && embeddingData[0].embedding.length > 0) {
+        const { data: embeddingData } = await EmbeddingsModel.getByContentId(
+          content_id
+        );
+        if (
+          embeddingData &&
+          embeddingData.length > 0 &&
+          embeddingData[0].embedding.length > 0
+        ) {
           contentEmbedding = embeddingData[0].embedding;
         } else {
           // Generate new embedding
-          contentEmbedding = await EmbeddingService.generateAndStore(content_id, textContent);
+          contentEmbedding = await EmbeddingService.generateAndStore(
+            content_id,
+            textContent
+          );
         }
-        
-        // Fetch project and theme
-        const { data: project, error: projectError } = await ProjectModel.getById(existingContent.project_id);
-        if (projectError || !project) {
-          return res.status(404).json({ error: "Project not found" });
-        }
-        projectData = project;
 
-        const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
-        if (themeError || !theme) {
-          return res.status(404).json({ error: "Theme not found" });
-        }
-        themeData = theme;
-      } 
+        projectId = existingContent.project_id;
+      }
       // Scenario 2: Validate new/raw content
       else {
         textContent = content;
-
-        const { data: project, error: projectError } = await ProjectModel.getById(project_id);
-        if (projectError || !project) {
-          return res.status(404).json({ error: "Project not found" });
-        }
-        projectData = project;
-
-        const { data: theme, error: themeError } = await ThemeModel.getById(project.theme_id);
-        if (themeError || !theme) {
-          return res.status(404).json({ error: "Theme not found" });
-        }
-        themeData = theme;
+        projectId = project_id;
 
         // Generate embedding for new content (without storing)
-        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(textContent);
+        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(
+          textContent
+        );
       }
+
+      // Fetch project and theme
+      const { data: project, error: projectError } = await ProjectModel.getById(
+        projectId
+      );
+
+      if (projectError || !project) {
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Project not found",
+          StatusCodes.NOT_FOUND
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+      const projectData = project;
+
+      const { data: theme, error: themeError } = await ThemeModel.getById(
+        project.theme_id
+      );
+
+      if (themeError || !theme) {
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Theme not found",
+          StatusCodes.NOT_FOUND
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+      const themeData = theme;
 
       // Build brand reference texts
       const brandTexts = [
-        `${themeData.name}: ${themeData.tags.join(', ')}`,
-        `Inspired by: ${themeData.inspirations.join(', ')}`,
+        `${themeData.name}: ${themeData.tags.join(", ")}`,
+        `Inspired by: ${themeData.inspirations.join(", ")}`,
         `${projectData.description}`,
         `Goals: ${projectData.goals}`,
-        `Target: ${projectData.customer_type}`
+        `Target: ${projectData.customer_type}`,
       ];
 
       // Generate embeddings for brand references
       const brandEmbeddings = await Promise.all(
-        brandTexts.map(text => EmbeddingService.generateDocumentEmbedding(text))
+        brandTexts.map((text) =>
+          EmbeddingService.generateDocumentEmbedding(text)
+        )
       );
 
       // Calculate similarity scores with each brand reference
-      const similarityScores = brandEmbeddings.map(brandEmb => 
+      const similarityScores = brandEmbeddings.map((brandEmb) =>
         EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
       );
 
       // Average similarity as brand consistency score
-      const avgSimilarity = similarityScores.reduce((sum, score) => sum + score, 0) / similarityScores.length;
+      const avgSimilarity =
+        similarityScores.reduce((sum, score) => sum + score, 0) /
+        similarityScores.length;
       const brandConsistencyScore = Math.round(avgSimilarity * 100);
 
       // Quality heuristics based on text features
-      const qualityScore = ComputationController.calculateQualityScore(textContent);
+      const qualityScore =
+        ComputationController.calculateQualityScore(textContent);
 
       // Overall score: 60% brand consistency, 40% quality
-      const overallScore = Math.round(brandConsistencyScore * 0.6 + qualityScore * 0.4);
+      const overallScore = Math.round(
+        brandConsistencyScore * 0.6 + qualityScore * 0.4
+      );
       const passesValidation = overallScore >= 70;
 
       // Generate insights based on scores
@@ -276,8 +332,11 @@ export const ComputationController = {
         issues.push({
           severity: "major",
           category: "brand_alignment",
-          description: "Content does not strongly align with brand theme and goals",
-          suggestion: `Incorporate more elements from: ${themeData.tags.slice(0, 3).join(', ')}`
+          description:
+            "Content does not strongly align with brand theme and goals",
+          suggestion: `Incorporate more elements from: ${themeData.tags
+            .slice(0, 3)
+            .join(", ")}`,
         });
       }
 
@@ -289,7 +348,7 @@ export const ComputationController = {
           severity: "major",
           category: "clarity",
           description: "Content quality could be improved",
-          suggestion: "Review for clarity, length, and professional tone"
+          suggestion: "Review for clarity, length, and professional tone",
         });
       }
 
@@ -299,7 +358,7 @@ export const ComputationController = {
           severity: "minor",
           category: "tone",
           description: "Excessive exclamation marks detected",
-          suggestion: "Use a more professional tone"
+          suggestion: "Use a more professional tone",
         });
       }
 
@@ -308,61 +367,136 @@ export const ComputationController = {
           severity: "minor",
           category: "clarity",
           description: "Content is very short",
-          suggestion: "Consider adding more detail to convey value"
+          suggestion: "Consider adding more detail to convey value",
         });
       }
 
       // Generate recommendations
       if (brandConsistencyScore < 80) {
-        recommendations.push(`Reference brand inspirations: ${themeData.inspirations.slice(0, 2).join(', ')}`);
+        recommendations.push(
+          `Reference brand inspirations: ${themeData.inspirations
+            .slice(0, 2)
+            .join(", ")}`
+        );
       }
-      if (!textContent.toLowerCase().includes(projectData.customer_type.split(' ')[0])) {
-        recommendations.push(`Address target audience: ${projectData.customer_type}`);
+      if (
+        !textContent
+          .toLowerCase()
+          .includes(projectData.customer_type.split(" ")[0])
+      ) {
+        recommendations.push(
+          `Address target audience: ${projectData.customer_type}`
+        );
       }
 
       // Build summary
       let summary = "";
       if (overallScore >= 85) {
-        summary = "Excellent content that aligns well with brand guidelines and maintains high quality.";
+        summary =
+          "Excellent content that aligns well with brand guidelines and maintains high quality.";
       } else if (overallScore >= 70) {
-        summary = "Good content with minor improvements possible for better brand alignment.";
+        summary =
+          "Good content with minor improvements possible for better brand alignment.";
       } else if (overallScore >= 50) {
-        summary = "Content needs revision to better align with brand guidelines.";
+        summary =
+          "Content needs revision to better align with brand guidelines.";
       } else {
-        summary = "Content significantly deviates from brand guidelines and requires substantial revision.";
+        summary =
+          "Content significantly deviates from brand guidelines and requires substantial revision.";
       }
 
       // Return validation results
-      res.json({
-        success: true,
-        content_id: content_id || null,
-        project_id: projectData.id,
-        validation: {
-          brand_consistency_score: brandConsistencyScore,
-          quality_score: qualityScore,
-          overall_score: overallScore,
-          passes_validation: passesValidation,
-          strengths: strengths.length > 0 ? strengths : ["Content meets basic requirements"],
-          issues: issues,
-          recommendations: recommendations.length > 0 ? recommendations : ["Content is well-aligned with brand"],
-          summary: summary,
-          similarity_details: {
-            theme_similarity: Math.round(similarityScores[0] * 100),
-            inspiration_similarity: Math.round(similarityScores[1] * 100),
-            description_similarity: Math.round(similarityScores[2] * 100),
-            goals_similarity: Math.round(similarityScores[3] * 100),
-            audience_similarity: Math.round(similarityScores[4] * 100)
-          }
+      serviceResponse = ServiceResponse.success(
+        {
+          success: true,
+          content_id: content_id || null,
+          project_id: projectData.id,
+          validation: {
+            brand_consistency_score: brandConsistencyScore,
+            quality_score: qualityScore,
+            overall_score: overallScore,
+            passes_validation: passesValidation,
+            strengths:
+              strengths.length > 0
+                ? strengths
+                : ["Content meets basic requirements"],
+            issues: issues,
+            recommendations:
+              recommendations.length > 0
+                ? recommendations
+                : ["Content is well-aligned with brand"],
+            summary: summary,
+            similarity_details: {
+              theme_similarity: Math.round(similarityScores[0] * 100),
+              inspiration_similarity: Math.round(similarityScores[1] * 100),
+              description_similarity: Math.round(similarityScores[2] * 100),
+              goals_similarity: Math.round(similarityScores[3] * 100),
+              audience_similarity: Math.round(similarityScores[4] * 100),
+            },
+          },
+          timestamp: new Date().toISOString(),
         },
-        timestamp: new Date().toISOString()
-      });
-
+        "Success",
+        StatusCodes.OK
+      );
+      return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
       console.error("Validation error:", error);
-      res.status(500).json({ 
-        error: "Content validation failed", 
-        details: error.message || "Unknown error"
+      const serviceResponse = ServiceResponse.failure(error);
+      return handleServiceResponse(serviceResponse, res);
+    }
+  },
+
+  async testVertex(req: Request, res: Response) {
+    try {
+      let serviceResponse;
+
+      console.log("GCP_PROJECT_ID from env:", process.env.GCP_PROJECT_ID);
+
+      if (!process.env.GCP_PROJECT_ID) {
+        serviceResponse = ServiceResponse.failure(
+          {
+            env_keys: Object.keys(process.env).filter(
+              (k) => k.includes("GCP") || k.includes("GOOGLE")
+            ),
+          },
+          "GCP_PROJECT_ID not set",
+          StatusCodes.INTERNAL_SERVER_ERROR
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
+      const vertex = new VertexAI({
+        project: process.env.GCP_PROJECT_ID,
+        location: "us-central1",
       });
+
+      const model = vertex.getGenerativeModel({
+        model: process.env.VERTEX_MODEL_TEXT || "gemini-2.5-flash-lite",
+      });
+
+      const result = await model.generateContent({
+        contents: [
+          { role: "user", parts: [{ text: "Say hi from Vertex AI!" }] },
+        ],
+      });
+
+      const response =
+        result.response.candidates?.[0]?.content?.parts?.[0]?.text ||
+        "No response generated";
+
+      serviceResponse = ServiceResponse.success(
+        response,
+        "Vertex AI test successful",
+        StatusCodes.OK
+      );
+      return handleServiceResponse(serviceResponse, res);
+    } catch (error: any) {
+      const serviceResponse = ServiceResponse.failure(
+        error,
+        "Vertex test failed"
+      );
+      return handleServiceResponse(serviceResponse, res);
     }
   },
 
@@ -372,9 +506,9 @@ export const ComputationController = {
   calculateQualityScore(text: string): number {
     let score = 70; // Start with baseline
 
-    const words = text.split(/\s+/).filter(w => w.length > 0);
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
+    const words = text.split(/\s+/).filter((w) => w.length > 0);
+    const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+
     // Length checks
     if (words.length >= 20 && words.length <= 200) {
       score += 10; // Good length
@@ -388,7 +522,8 @@ export const ComputationController = {
     }
 
     // Average word length (indicator of vocabulary)
-    const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
+    const avgWordLength =
+      words.reduce((sum, w) => sum + w.length, 0) / words.length;
     if (avgWordLength >= 5 && avgWordLength <= 8) {
       score += 5; // Good vocabulary balance
     }
@@ -399,19 +534,27 @@ export const ComputationController = {
     }
 
     // Check for all caps (unprofessional)
-    const capsWords = words.filter(w => w === w.toUpperCase() && w.length > 2);
+    const capsWords = words.filter(
+      (w) => w === w.toUpperCase() && w.length > 2
+    );
     if (capsWords.length > words.length * 0.1) {
       score -= 10; // Too much shouting
     }
 
     // Professional indicators
-    const professionalWords = ['innovative', 'professional', 'seamless', 'efficient', 'experience', 'solution'];
-    const professionalCount = professionalWords.filter(pw => 
+    const professionalWords = [
+      "innovative",
+      "professional",
+      "seamless",
+      "efficient",
+      "experience",
+      "solution",
+    ];
+    const professionalCount = professionalWords.filter((pw) =>
       text.toLowerCase().includes(pw)
     ).length;
     score += Math.min(professionalCount * 3, 10);
 
     return Math.max(0, Math.min(100, score));
-  }
+  },
 };
-

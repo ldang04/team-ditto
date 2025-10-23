@@ -1,8 +1,9 @@
 /**
  * routes/clientRoutes.ts
  *
- * This file defines the Express routes for ...
- * All routes are protected via API key middleware, ensuring multi-tenant isolation.
+ * Express router configuration for client-related endpoints.
+ * Defines routes for client management operations including
+ * client registration and API key generation.
  *
  */
 import express from "express";
@@ -10,7 +11,12 @@ import { ClientController } from "../controllers/ClientController";
 
 const router = express.Router();
 
-// POST /api/clients/create
+/**
+ * Create a new client account
+ *
+ * @route POST /clients/create
+ * @body {Object} client - Client information
+ */
 router.post("/clients/create", ClientController.createClient);
 
 export default router;

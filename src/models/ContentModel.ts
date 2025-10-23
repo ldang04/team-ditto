@@ -34,4 +34,19 @@ export const ContentModel = {
   async create(content: Content) {
     return await supabase.from("contents").insert(content).select().single();
   },
+
+  /**
+   * Retrieve single content by its unique ID.
+   *
+   * @param contentId - The id of the content.
+   * @returns A promise resolving to the matching content record or an error.
+   *
+   */
+  async getById(contentId: string) {
+    return await supabase
+      .from("contents")
+      .select("*")
+      .eq("id", contentId)
+      .single();
+  },
 };

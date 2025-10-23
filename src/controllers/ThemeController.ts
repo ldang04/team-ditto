@@ -1,52 +1,100 @@
+/**
+ * controllers/ThemeController.ts
+ *
+ * Controller responsible for managing theme-related operations.
+ * Handles creation and retrieval of theme records associated
+ * with clients. Themes define visual and behavioral customization
+ * options for client projects.
+ *
+ */
 import { Request, Response } from "express";
 import { ThemeModel } from "../models/ThemeModel";
+import { ServiceResponse } from "../types/serviceResponse";
+import { StatusCodes } from "http-status-codes";
+import { handleServiceResponse } from "../utils/httpHandlers";
 
 export const ThemeController = {
   /**
-   * Create a new theme
-   * POST /themes/create
+   * Create a new theme for a client.
+   *
+   * @param req - Express Request containing theme information and authenticated clientId
+   * @param res - Express Response used to send back the result
+   *
+   * @returns {Object} 201 - JSON object containing the created theme details
+   * @throws {400} If required fields (name) are missing
+   * @throws {500} If an unexpected server error occurs
    */
   async create(req: Request, res: Response) {
     try {
+      let serviceResponse;
       const { name } = req.body;
-      const client_id = req.clientId; // From auth middleware
+      const client_id = req.clientId;
 
       if (!name) {
-        return res.status(400).json({ error: "Missing required fields" });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Missing required fields",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       const { data, error } = await ThemeModel.create({
         ...req.body,
-        client_id
+        client_id,
       });
 
       if (error || !data) throw error;
 
-      res.status(201).json(data);
+      serviceResponse = ServiceResponse.success(
+        data,
+        "Theme created successfully",
+        StatusCodes.CREATED
+      );
+      return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      res.status(500).json({ error: "Internal Server Error" });
+      const serviceResponse = ServiceResponse.failure(err);
+      return handleServiceResponse(serviceResponse, res);
     }
   },
 
   /**
-   * List all themes for the authenticated client
-   * GET /themes
+   * List all themes belonging to the authenticated client.
+   *
+   * @param req - Express Request with authenticated clientId
+   * @param res - Express Response used to send back the result
+   *
+   * @returns {Object} 200 - JSON array of themes belonging to the client
+   * @throws {401} If client is not authenticated
+   * @throws {500} If an unexpected server error occurs
    */
   async listByClient(req: Request, res: Response) {
     try {
-      const client_id = req.clientId; // From auth middleware
+      let serviceResponse;
+      const client_id = req.clientId;
 
       if (!client_id) {
-        return res.status(401).json({ error: "Unauthorized" });
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "Unauthorized",
+          StatusCodes.UNAUTHORIZED
+        );
+        return handleServiceResponse(serviceResponse, res);
       }
 
       const { data, error } = await ThemeModel.listByClient(client_id);
 
       if (error) throw error;
 
-      res.status(200).json(data);
+      serviceResponse = ServiceResponse.success(
+        data,
+        "Retrieved themes",
+        StatusCodes.OK
+      );
+      return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      res.status(500).json({ error: "Internal Server Error" });
+      const serviceResponse = ServiceResponse.failure(err);
+      return handleServiceResponse(serviceResponse, res);
     }
   },
 };

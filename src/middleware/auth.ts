@@ -15,15 +15,24 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiKeyModel } from "../models/ApiKeyModel";
 import bcrypt from "bcrypt";
+import { ServiceResponse } from "../types/serviceResponse";
+import { StatusCodes } from "http-status-codes";
+import { handleServiceResponse } from "../utils/httpHandlers";
 
 export async function authMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
+  let serviceResponse;
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing API key" });
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Missing API key",
+      StatusCodes.UNAUTHORIZED
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   const providedKey = header.split(" ")[1];
@@ -33,15 +42,34 @@ export async function authMiddleware(
   // Fetch the key record from Supabase using prefix with active status
   const { data: keyRecord, error } = await ApiKeyModel.list(prefix);
 
+  if (!keyRecord?.id) {
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Unauthorized",
+      StatusCodes.UNAUTHORIZED
+    );
+    return handleServiceResponse(serviceResponse, res);
+  }
+
   // If key not found, deny access
   if (error || !keyRecord) {
-    return res.status(403).json({ error: "Invalid API key" });
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Invalid API key",
+      StatusCodes.FORBIDDEN
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   // Compare the provided key with the stored hashed key
   const valid = await bcrypt.compare(providedKey, keyRecord.hashed_key);
   if (!valid) {
-    return res.status(403).json({ error: "Invalid API key" });
+    serviceResponse = ServiceResponse.failure(
+      null,
+      "Invalid API key",
+      StatusCodes.FORBIDDEN
+    );
+    return handleServiceResponse(serviceResponse, res);
   }
 
   // Attach client ID to request object for use in downstream routes
