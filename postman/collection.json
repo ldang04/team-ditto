@@ -942,6 +942,393 @@
       ]
     },
     {
+      "name": "Data Persistence Tests (Write-Then-Read)",
+      "item": [
+        {
+          "name": "1. Create Project (Write)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Project created successfully', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// Save project ID for read test",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set('persistenceTestProjectId', jsonData.data.id);",
+                  "    pm.environment.set('persistenceTestProjectName', jsonData.data.name);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"name\\\": \\\"Persistence Test Project\\\",\\n  \\\"description\\\": \\\"Testing data persistence\\\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
+        },
+        {
+          "name": "2. Read Project Back (Read)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "const savedProjectName = pm.environment.get('persistenceTestProjectName');",
+                  "",
+                  "pm.test('Can read back saved data', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Saved project is in the list', () => {",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const found = projects.some(p => p.name === savedProjectName);",
+                  "    pm.expect(found).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Data persisted correctly', () => {",
+                  "    pm.expect(jsonData.data).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "3. Update Project (Write)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Project updated successfully', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(jsonData.data.name).to.equal('Updated Persistence Project');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"name\\\": \\\"Updated Persistence Project\\\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{persistenceTestProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{persistenceTestProjectId}}"]
+            }
+          }
+        },
+        {
+          "name": "4. Read Updated Project (Read)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Updated data persisted', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const found = projects.some(p => p.name === 'Updated Persistence Project');",
+                  "    pm.expect(found).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multi-Client Isolation Tests",
+      "item": [
+        {
+          "name": "1. Create Second Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Second client created', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(jsonData.data).to.have.property('api_key');",
+                  "});",
+                  "",
+                  "// Save second client's API key",
+                  "if (jsonData.data && jsonData.data.api_key) {",
+                  "    pm.environment.set('client2ApiKey', jsonData.data.api_key);",
+                  "    pm.environment.set('client2Id', jsonData.data.client_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"name\\\": \\\"Second Test Client\\\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/clients/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "clients", "create"]
+            }
+          }
+        },
+        {
+          "name": "2. Client 1 Creates Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Client 1 project created', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set('client1ProjectId', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"name\\\": \\\"Client 1 Private Project\\\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
+        },
+        {
+          "name": "3. Client 2 Creates Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Client 2 project created', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set('client2ProjectId', jsonData.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client2ApiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"name\\\": \\\"Client 2 Private Project\\\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "create"]
+            }
+          }
+        },
+        {
+          "name": "4. Client 1 Lists Projects (Should NOT See Client 2's)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Client 1 can access their projects', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Client 1 cannot see Client 2 projects', () => {",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const hasClient2Project = projects.some(p => p.name === 'Client 2 Private Project');",
+                  "    pm.expect(hasClient2Project).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Client 1 can see their own project', () => {",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const hasClient1Project = projects.some(p => p.name === 'Client 1 Private Project');",
+                  "    pm.expect(hasClient1Project).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "5. Client 2 Lists Projects (Should NOT See Client 1's)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "",
+                  "pm.test('Client 2 can access their projects', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Client 2 cannot see Client 1 projects', () => {",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const hasClient1Project = projects.some(p => p.name === 'Client 1 Private Project');",
+                  "    pm.expect(hasClient1Project).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Client 2 can see their own project', () => {",
+                  "    const projects = Array.isArray(jsonData.data) ? jsonData.data : [jsonData.data];",
+                  "    const hasClient2Project = projects.some(p => p.name === 'Client 2 Private Project');",
+                  "    pm.expect(hasClient2Project).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client2ApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Public Endpoints",
       "item": [
         {
@@ -971,10 +1358,33 @@
       ]
     }
   ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Note: This collection tests logging indirectly",
+          "// Each endpoint call triggers console.log in controllers",
+          "// Verify by checking server output when running tests"
+        ]
+      }
+    }
+  ],
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "client2ApiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "client2Id",
+      "value": "",
       "type": "string"
     }
   ]
