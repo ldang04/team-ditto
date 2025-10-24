@@ -195,35 +195,65 @@ Authorization: Bearer YOUR_API_KEY
 
 ### Endpoints Overview
 
+**Status Code Format:** `HTTP_CODE (description)` - **Status:** for success codes, **Errors:** for error codes
+
 #### Public Endpoints (No Authentication Required)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/clients/create` | **Start here!** Create a new client and get an API key |
-| GET | `/api/vertex-test` | Test Vertex AI connection |
+| POST | `/api/clients/create` | **Start here!** Create a new client and get an API key<br/>**Body:** `{"name": "string"}`<br/>**Returns:** `{success, data: {client_id, api_key}, message}`<br/>**Status:** 201 (created), **Errors:** 400 (missing name), 500 (server error) |
+| GET | `/api/vertex-test` | Test Vertex AI connection<br/>**No parameters required**<br/>**Returns:** `{success, data: "AI response", message}`<br/>**Status:** 200 (success), **Errors:** 500 (Vertex AI connection failed) |
 
 #### Protected Endpoints (Require Authentication)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | **Projects** |||
-| POST | `/api/projects/create` | Create a new project |
-| GET | `/api/projects` | List all projects for authenticated client |
-| PUT | `/api/projects/:id` | Update a project |
+| POST | `/api/projects/create` | Create a new project<br/>**Required:** `name`<br/>**Optional:** `description`, `goals`, `customer_type`, `theme_id`<br/>**Returns:** `{success, data: {id, name, description, goals, customer_type, theme_id, created_at, client_id}, message}`<br/>**Status:** 201 (created), **Errors:** 400 (missing name), 401 (no auth), 403 (invalid auth), 500 (server error) |
+| GET | `/api/projects` | List all projects for authenticated client<br/>**No parameters required**<br/>**Returns:** `{success, data: [{project objects}], message}`<br/>**Status:** 200 (success), **Errors:** 401 (no auth), 403 (invalid auth), 500 (server error) |
+| PUT | `/api/projects/:id` | Update a project<br/>**Path:** `:id`<br/>**Body:** Any of `name`, `description`, `goals`, `customer_type`, `theme_id`<br/>**Returns:** `{success, data: {updated project object}, message}`<br/>**Status:** 200 (success), **Errors:** 400 (invalid data), 401 (no auth), 403 (invalid auth), 404 (project not found), 500 (server error) |
 | **Themes** |||
-| POST | `/api/themes/create` | Create a new brand theme |
-| GET | `/api/themes` | List all themes for authenticated client |
+| POST | `/api/themes/create` | Create a new brand theme<br/>**Required:** `name`<br/>**Optional:** `tags[]`, `inspirations[]`, `font`<br/>**Returns:** `{success, data: {id, name, font, tags, inspirations, created_at, client_id}, message}`<br/>**Status:** 201 (created), **Errors:** 400 (missing name), 401 (no auth), 403 (invalid auth), 500 (server error) |
+| GET | `/api/themes` | List all themes for authenticated client<br/>**No parameters required**<br/>**Returns:** `{success, data: [{theme objects}], message}`<br/>**Status:** 200 (success), **Errors:** 401 (no auth), 403 (invalid auth), 500 (server error) |
 | **Contents** |||
-| GET | `/api/contents/:project_id` | List all content for a project |
+| GET | `/api/contents/:project_id` | List all content for a project<br/>**Path:** `:project_id`<br/>**Returns:** `{success, data: [{id, project_id, media_type, media_url, text_content, created_at}], message}`<br/>**Status:** 200 (success), **Errors:** 401 (no auth), 403 (invalid auth), 404 (project not found), 500 (server error) |
 | **Generation & Validation** |||
-| POST | `/api/generate` | Generate marketing content with AI |
-| POST | `/api/validate` | Validate content against brand guidelines |
+| POST | `/api/generate` | Generate marketing content with AI<br/>**Required:** `project_id`, `prompt`<br/>**Optional:** `media_type` (default: "text"), `style_preferences` (default: {}), `target_audience` (default: "general"), `variantCount` (default: 3)<br/>**Returns:** `{success, data: {variants: [{content_id, generated_content}], project_id, media_type, variant_count, timestamp}, message}`<br/>**Status:** 201 (created), **Errors:** 400 (missing project_id/prompt), 401 (no auth), 403 (invalid auth), 404 (theme not found), 500 (AI generation failed) |
+| POST | `/api/validate` | Validate content against brand guidelines<br/>**Either:** `content_id` **OR** `content` + `project_id`<br/>**Prerequisites:** Project must have a theme linked AND customer_type must be set (not null)<br/>**Returns:** `{success, data: {validation: {brand_consistency_score, quality_score, overall_score, passes_validation, strengths, issues, recommendations, summary, similarity_details}}, message}`<br/>**Status:** 200 (success), **Errors:** 400 (missing parameters), 401 (no auth), 403 (invalid auth), 404 (theme not found), 500 (null customer_type) |
 
-### Detailed API Documentation
+#### Quick Status Code Reference
+- **200**: Success (GET, PUT, POST operations completed successfully)
+- **201**: Created (POST operations that create new resources)
+- **400**: Bad request (missing required fields, invalid data)
+- **401**: Unauthorized (missing API key)
+- **403**: Forbidden (invalid API key)
+- **404**: Not found (resource doesn't exist)
+- **500**: Internal server error (server/configuration issue)
 
-For comprehensive API documentation including request/response formats, examples, and error codes, see:
-- **[VALIDATE_API.md](./VALIDATE_API.md)** - Detailed documentation for the `/api/validate` endpoint
-- **[EMBEDDINGS_README.md](./EMBEDDINGS_README.md)** - Explanation of the embedding system used for validation
+### Proper Setup Sequence for Validation
+
+**IMPORTANT:** The `/api/validate` endpoint requires specific project setup to work correctly:
+
+1. **Create a client** (get API key)
+2. **Create a theme** (with inspirations for brand guidelines)
+3. **Create a project** with:
+   - `theme_id` (link to the theme)
+   - `customer_type` (must not be null - this is critical!)
+4. **Now validation will work**
+
+**Why this matters:** The validation system uses the theme's inspirations and the project's customer_type to assess brand consistency. Without these, the system cannot perform proper validation.
+
+### Quick Reference: Validation Endpoint
+
+**Endpoint:** `POST /api/validate`
+**Authentication:** Required (Bearer token)
+**Prerequisites:** Project must have `theme_id` AND `customer_type` (not null)
+
+**Request Options:**
+- Option A: `{"content_id": "existing-content-id"}`
+- Option B: `{"content": "text to validate", "project_id": "project-id"}`
+
+**Response:** Returns brand consistency score, quality score, recommendations, and detailed similarity analysis.
 
 ### Example API Calls
 
@@ -248,20 +278,7 @@ Response:
 
 **IMPORTANT:** Save the API key - it's only shown once!
 
-#### 2. Create a Project
-```bash
-curl -X POST http://localhost:3000/api/projects/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{
-    "name": "Summer Campaign",
-    "description": "Product launch campaign",
-    "goals": "Increase awareness",
-    "customer_type": "Tech professionals"
-  }'
-```
-
-#### 3. Create a Theme
+#### 2. Create a Theme (First - needed for project)
 ```bash
 curl -X POST http://localhost:3000/api/themes/create \
   -H "Content-Type: application/json" \
@@ -274,6 +291,20 @@ curl -X POST http://localhost:3000/api/themes/create \
   }'
 ```
 
+#### 3. Create a Project (with theme_id and customer_type)
+```bash
+curl -X POST http://localhost:3000/api/projects/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "name": "Summer Campaign",
+    "description": "Product launch campaign",
+    "goals": "Increase awareness",
+    "customer_type": "Tech professionals",
+    "theme_id": "your-theme-id-from-step-2"
+  }'
+```
+
 #### 4. Generate Content
 ```bash
 curl -X POST http://localhost:3000/api/generate \
@@ -282,7 +313,7 @@ curl -X POST http://localhost:3000/api/generate \
   -d '{
     "project_id": "your-project-id",
     "prompt": "Create a product announcement",
-    "num_variants": 3
+    "variantCount": 3
   }'
 ```
 
@@ -292,22 +323,30 @@ curl -X POST http://localhost:3000/api/validate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "content": "Your marketing text here",
+    "content": "Our innovative tech solution provides modern features for professionals",
     "project_id": "your-project-id"
   }'
 ```
 
-### Status Codes That Apply To Our Endpoints
+**Note:** This will only work if your project has both a `theme_id` and `customer_type` set (not null).
 
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 201 | Created successfully |
-| 400 | Bad request (missing required fields) |
-| 401 | Unauthorized (missing or invalid API key) |
-| 403 | Forbidden |
-| 404 | Not found |
-| 500 | Internal server error |
+### Troubleshooting Validation Issues
+
+**Problem:** Getting 500 error when calling `/api/validate`
+**Solution:** Ensure your project has:
+- `theme_id` is set (not null)
+- `customer_type` is set (not null)
+
+**Problem:** Getting 404 "Theme not found" 
+
+**Solution:** Link your project to a theme using `theme_id`
+
+
+**Problem:** Getting 400 "Must provide either content_id OR (content + project_id)"
+
+**Solution:** Provide either:
+- `content_id` (to validate existing content)
+- OR both `content` and `project_id` (to validate new text)
 
 ---
 
@@ -534,4 +573,4 @@ There are some comments that were done with the assistance of Copilot. Prompts w
 
 ### Overall Statement For Use of AI:
 
-This project at times utilized the free AI tools that are Cursor (student plan - free) and ChatGPT (free). These tools were consulted when guidance was needed to setup certain endpoints, the testing framework, and the organization of this README (which has already been documented in the section above). Although there are citations within the code that mark when AI was used, we wanted to include this section and overall statement to ensure that we give a proper citation to external articial intelligence tools/sources used. All AI-assisted code was reviewed, tested, and validated before committing. GCP credits for Vertex AI were obtained through Columbia University.
+This project at times utilized the free AI tools that are Cursor (student plan - free) and ChatGPT (free). These tools were consulted when guidance was needed to setup certain endpoints, the testing framework, and the organization of this README (which has already been documented in the section above). Although there are citations within the code that mark when AI was used, we wanted to include this section and overall statement to ensure that we give a proper citation to external artifcial intelligence tools/sources used. All AI-assisted code was reviewed, tested, and validated before committing. GCP credits for Vertex AI were obtained through Columbia University.
