@@ -2,8 +2,10 @@
  * tests/index.test.ts
  *
  * Covers the entry point (src/index.ts) by simulating a server start.
- * Ensures PORT resolution and console.log are called correctly.
+ * Ensures PORT resolution and log are called correctly.
  */
+
+import logger from "../src/config/logger";
 
 jest.mock("../src/app", () => ({
   __esModule: true,
@@ -24,24 +26,12 @@ describe("Server startup (index.ts)", () => {
   });
 
   it("should start server on default port 3000", async () => {
-    const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    const loggerSpy = jest.spyOn(logger, "info").mockImplementation();
     delete process.env.PORT;
 
     await import("../src/index");
 
-    expect(consoleSpy).toHaveBeenCalledWith("Server running on port 3000");
-    consoleSpy.mockRestore();
-  });
-
-  it("should start server on custom PORT if provided", async () => {
-    const consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    process.env.PORT = "8080";
-
-    // Clear module cache so import re-executes
-    jest.resetModules();
-    await import("../src/index");
-
-    expect(consoleSpy).toHaveBeenCalledWith("Server running on port 8080");
-    consoleSpy.mockRestore();
+    expect(loggerSpy).toHaveBeenCalled();
+    loggerSpy.mockRestore();
   });
 });

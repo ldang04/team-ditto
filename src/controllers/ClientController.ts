@@ -13,6 +13,7 @@ import { ApiKeyModel } from "../models/ApiKeyModel";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
+import logger from "../config/logger";
 
 export const ClientController = {
   /**
@@ -27,7 +28,7 @@ export const ClientController = {
    */
   async createClient(req: Request, res: Response) {
     try {
-      console.log("POST /clients/create", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       const { name } = req.body;
 
       if (!name) {
@@ -66,7 +67,7 @@ export const ClientController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.error("Error in ClientController.createClient:", err);
+      logger.error("Error in ClientController.createClient:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

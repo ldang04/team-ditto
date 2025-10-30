@@ -118,8 +118,8 @@
               }
             }
           ],
-      "request": {
-        "method": "POST",
+          "request": {
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
@@ -130,9 +130,9 @@
               "mode": "raw",
               "raw": "{}"
             },
-        "url": {
-          "raw": "{{baseUrl}}/api/clients/create",
-          "host": ["{{baseUrl}}"],
+            "url": {
+              "raw": "{{baseUrl}}/api/clients/create",
+              "host": ["{{baseUrl}}"],
               "path": ["api", "clients", "create"]
             }
           }
@@ -387,8 +387,8 @@
                 "value": "Bearer {{apiKey}}"
               }
             ],
-        "body": {
-          "mode": "raw",
+            "body": {
+              "mode": "raw",
               "raw": "{\n  \"name\": \"Updated Campaign Name\"\n}"
             },
             "url": {
@@ -533,12 +533,12 @@
         },
         {
           "name": "List Themes - Valid",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "const jsonData = pm.response.json();",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
                   "",
                   "pm.test('Status code is 200', () => {",
                   "    pm.response.to.have.status(200);",
@@ -1413,7 +1413,7 @@
         "exec": [
           "// CITATION: Collection-level script added with cursor",
           "// Note: This collection tests logging indirectly",
-          "// Each endpoint call triggers console.log in controllers",
+          "// Each endpoint call triggers log in controllers",
           "// Verify by checking server output when running tests"
         ]
       }

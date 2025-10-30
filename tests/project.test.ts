@@ -7,6 +7,7 @@
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
+import logger from "../src/config/logger";
 
 describe("Project API", () => {
   let apiKey: string;
@@ -28,8 +29,12 @@ describe("Project API", () => {
   });
 
   beforeEach(() => {
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   /**
@@ -46,7 +51,7 @@ describe("Project API", () => {
         customer_type: "tech-savvy professionals",
       });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -67,7 +72,7 @@ describe("Project API", () => {
         description: "No name here",
       });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing required fields");
@@ -81,7 +86,7 @@ describe("Project API", () => {
       .get("/api/projects")
       .set("Authorization", `Bearer ${apiKey}`);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Retrieved projects");
@@ -92,7 +97,6 @@ describe("Project API", () => {
    */
   it("should return 401 if no API key is provided", async () => {
     const res = await request(app).get("/api/projects");
-    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
   });
@@ -108,7 +112,7 @@ describe("Project API", () => {
         name: "Updated Project Name",
       });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Updated project successfully");
@@ -126,7 +130,6 @@ describe("Project API", () => {
         name: "Invalid Project Update",
       });
 
-    expect(console.log).toHaveBeenCalled();
     expect(res.status).toBe(404);
   });
 
@@ -157,7 +160,7 @@ describe("Project API", () => {
       .get("/api/projects")
       .set("Authorization", `Bearer ${keyB}`);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(listB.body.data).toEqual([]);
   });
 });

@@ -12,6 +12,7 @@ import { ThemeModel } from "../models/ThemeModel";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
+import logger from "../config/logger";
 
 export const ThemeController = {
   /**
@@ -26,7 +27,7 @@ export const ThemeController = {
    */
   async create(req: Request, res: Response) {
     try {
-      console.log("POST /themes/create", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       let serviceResponse;
       const { name } = req.body;
       const client_id = req.clientId;
@@ -54,7 +55,7 @@ export const ThemeController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.error("Error in ThemeController.create:", err);
+      logger.error("Error in ThemeController.create:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -72,7 +73,7 @@ export const ThemeController = {
    */
   async listByClient(req: Request, res: Response) {
     try {
-      console.log("POST /themes", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       let serviceResponse;
       const client_id = req.clientId;
 
@@ -96,7 +97,7 @@ export const ThemeController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.error("Error in ThemeController.listByClient:", err);
+      logger.error("Error in ThemeController.listByClient:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

@@ -8,6 +8,7 @@ import express from "express";
 import { authMiddleware } from "../src/middleware/auth";
 import { ApiKeyModel } from "../src/models/ApiKeyModel";
 import bcrypt from "bcrypt";
+import logger from "../src/config/logger";
 
 const app = express();
 app.use(express.json());
@@ -23,10 +24,17 @@ const mockCompare = bcrypt.compare as jest.Mock;
 describe("authMiddleware", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("should return 401 if Authorization header is missing", async () => {
     const res = await request(app).get("/protected");
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toMatch(/Missing API key/i);
@@ -37,6 +45,7 @@ describe("authMiddleware", () => {
     const res = await request(app)
       .get("/protected")
       .set("Authorization", "Bearer testkey123");
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/Invalid API key/i);
   });
@@ -49,6 +58,7 @@ describe("authMiddleware", () => {
     const res = await request(app)
       .get("/protected")
       .set("Authorization", "Bearer testkey123");
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/Invalid API key/i);
   });
@@ -64,6 +74,7 @@ describe("authMiddleware", () => {
       .get("/protected")
       .set("Authorization", "Bearer testkey123");
 
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/Invalid API key/i);
   });

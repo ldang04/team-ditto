@@ -1,5 +1,6 @@
 import { EmbeddingService } from "../src/services/EmbeddingService";
 import { EmbeddingsModel } from "../src/models/EmbeddingsModel";
+import logger from "../src/config/logger";
 
 // Mock dependencies
 jest.mock("google-auth-library", () => {
@@ -82,7 +83,7 @@ describe("EmbeddingService", () => {
       new Error("DB fail")
     );
 
-    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const spy = jest.spyOn(logger, "error").mockImplementation();
     await EmbeddingService.generateAndStore("bad-content", "broken text");
     expect(spy).toHaveBeenCalledWith(
       "Failed to store embedding:",

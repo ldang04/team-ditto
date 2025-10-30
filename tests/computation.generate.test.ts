@@ -1,3 +1,4 @@
+import logger from "../src/config/logger";
 import { ComputationController } from "../src/controllers/Computation";
 import { ContentModel } from "../src/models/ContentModel";
 import { ProjectModel } from "../src/models/ProjectModel";
@@ -20,8 +21,8 @@ describe("ComputationController.generate", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation(() => logger);
+    jest.spyOn(logger, "error").mockImplementation(() => logger);
   });
 
   afterEach(() => {
@@ -33,7 +34,7 @@ describe("ComputationController.generate", () => {
 
     await ComputationController.generate(mockReq, mockRes);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
