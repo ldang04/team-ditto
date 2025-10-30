@@ -8,6 +8,7 @@
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
+import logger from "../src/config/logger";
 
 describe("Content API", () => {
   let apiKey: string;
@@ -36,8 +37,12 @@ describe("Content API", () => {
   });
 
   beforeEach(() => {
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   /**
@@ -48,7 +53,7 @@ describe("Content API", () => {
       .get(`/api/contents/${projectId}`)
       .set("Authorization", `Bearer ${apiKey}`);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect([200, 500]).toContain(res.status);
     if (res.status === 200) {
@@ -67,8 +72,6 @@ describe("Content API", () => {
       .get("/api/contents/")
       .set("Authorization", `Bearer ${apiKey}`);
 
-    expect(console.log).toHaveBeenCalled();
-
     expect(res.status).toBe(404);
   });
 
@@ -78,8 +81,7 @@ describe("Content API", () => {
   it("should return 401 if no API key provided", async () => {
     const res = await request(app).get(`/api/contents/${projectId}`);
 
-    expect(console.log).toHaveBeenCalled();
-
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing API key");

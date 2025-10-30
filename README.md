@@ -132,10 +132,25 @@ In another terminal:
 npm run api:test
 ```
 
-**Logging Verification:** API tests trigger logging in the server. To verify logging works:
+**Logging Verification:** 
+Our service uses the Winston logger to record both informational and error logs for every API request.
+
+**How it works:**
+1. All incoming API requests are logged - calls logger.info() with the request method, URL, and payload.
+2. Controller-level errors are logged using logger.error() along with the stack trace.
+3. Winston writes logs to both the console (for live debugging) and to persistent log files under the `logs/` directory.
+
+**File output (persistent):**
+1. `logs/combined.log` → contains all info, warn, and error logs.
+2. `logs/error.log` → contains only error level logs for easier debugging.
+
+**API tests trigger logging in the server. To verify logging works:**
 1. Watch the first terminal (where `npm start` is running) during API tests
 2. You should see `console.log` output for errors and debugging
 3. Each endpoint call generates log entries showing the service is functioning
+4. Every successful endpoint call → recorded in `combined.log`.
+5. Every failed or exception-throwing call → recorded in both `combined.log` and `error.log`.
+
 
 #### Generate All Reports:
 ```bash

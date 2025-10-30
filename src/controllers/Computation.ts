@@ -9,11 +9,12 @@ import "dotenv/config";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
+import logger from "../config/logger";
 
 export const ComputationController = {
   async generate(req: Request, res: Response) {
     try {
-      console.log("POST /generate", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       const {
         project_id,
         prompt,
@@ -147,7 +148,7 @@ export const ComputationController = {
         });
 
         if (error) {
-          console.error("Database save error:", error);
+          logger.error("Database save error:", error);
           continue; // if a particular variant fails, continue with others
         }
 
@@ -178,7 +179,7 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
-      console.error("Error in ProjectController.generate:", error);
+      logger.error("Error in ProjectController.generate:", error);
       const serviceResponse = ServiceResponse.failure(error);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -186,13 +187,13 @@ export const ComputationController = {
 
   /**
    * CITATION: Function error handling and JSDoc assisted by Cursor.
-   * 
+   *
    * Validate content against brand guidelines using embedding similarity
    * Accepts either content_id (for existing content) or content + project_id (for new content)
    */
   async validate(req: Request, res: Response) {
     try {
-      console.log("POST /validate", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       const { content_id, content, project_id } = req.body;
 
       let serviceResponse;
@@ -446,7 +447,7 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
-      console.error("Error in ComputationController.validate:", error);
+      logger.error("Error in ComputationController.validate:", error);
       const serviceResponse = ServiceResponse.failure(error);
       return handleServiceResponse(serviceResponse, res);
     }
@@ -454,11 +455,10 @@ export const ComputationController = {
 
   async testVertex(req: Request, res: Response) {
     try {
-      console.log("POST /vertext-test", req.body);
-
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       let serviceResponse;
 
-      console.log("GCP_PROJECT_ID from env:", process.env.GCP_PROJECT_ID);
+      logger.info("GCP_PROJECT_ID from env:", process.env.GCP_PROJECT_ID);
 
       if (!process.env.GCP_PROJECT_ID) {
         serviceResponse = ServiceResponse.failure(
@@ -499,7 +499,7 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
-      console.error("Error in ComputationController.testVertex:", error);
+      logger.error("Error in ComputationController.testVertex:", error);
       const serviceResponse = ServiceResponse.failure(
         error,
         "Vertex test failed"

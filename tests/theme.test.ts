@@ -8,6 +8,7 @@
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
+import logger from "../src/config/logger";
 
 describe("Theme API", () => {
   let apiKey: string;
@@ -27,8 +28,12 @@ describe("Theme API", () => {
   });
 
   beforeEach(() => {
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   // Test successful theme creation
@@ -43,7 +48,7 @@ describe("Theme API", () => {
         font: "Roboto",
       });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Theme created successfully");
@@ -59,7 +64,7 @@ describe("Theme API", () => {
         font: "Roboto",
       });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe("Missing required fields");
@@ -71,7 +76,7 @@ describe("Theme API", () => {
       .get("/api/themes")
       .set("Authorization", `Bearer ${apiKey}`);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe("Retrieved themes");
@@ -81,7 +86,7 @@ describe("Theme API", () => {
   it("should return 401 when API key is missing", async () => {
     const res = await request(app).get("/api/themes");
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
   });

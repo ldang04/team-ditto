@@ -5,6 +5,7 @@ import { EmbeddingsModel } from "../src/models/EmbeddingsModel";
 import { ProjectModel } from "../src/models/ProjectModel";
 import { ThemeModel } from "../src/models/ThemeModel";
 import { EmbeddingService } from "../src/services/EmbeddingService";
+import logger from "../src/config/logger";
 
 jest.setTimeout(20000);
 
@@ -22,8 +23,8 @@ describe("ComputationController.validate", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -36,6 +37,7 @@ describe("ComputationController.validate", () => {
 
     await ComputationController.validate(mockReq, mockRes);
 
+    expect(logger.info).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -56,6 +58,7 @@ describe("ComputationController.validate", () => {
 
     await ComputationController.validate(mockReq, mockRes);
 
+    expect(logger.info).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -119,6 +122,7 @@ describe("ComputationController.validate", () => {
 
     await ComputationController.validate(mockReq, mockRes);
 
+    expect(logger.info).toHaveBeenCalled();
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,

@@ -18,6 +18,7 @@ import bcrypt from "bcrypt";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
+import logger from "../config/logger";
 
 export async function authMiddleware(
   req: Request,
@@ -27,6 +28,7 @@ export async function authMiddleware(
   let serviceResponse;
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
+    logger.error("Middleware: Missing API key");
     serviceResponse = ServiceResponse.failure(
       null,
       "Missing API key",
@@ -44,6 +46,7 @@ export async function authMiddleware(
 
   // If key not found, deny access
   if (error || !keyRecord || !keyRecord.id) {
+    logger.error("Middleware: Invalid API key");
     serviceResponse = ServiceResponse.failure(
       null,
       "Invalid API key",
@@ -55,6 +58,7 @@ export async function authMiddleware(
   // Compare the provided key with the stored hashed key
   const valid = await bcrypt.compare(providedKey, keyRecord.hashed_key);
   if (!valid) {
+    logger.error("Middleware: Invalid API key");
     serviceResponse = ServiceResponse.failure(
       null,
       "Invalid API key",

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { ProjectController } from "../src/controllers/ProjectController";
 import { ProjectModel } from "../src/models/ProjectModel";
 import { handleServiceResponse } from "../src/utils/httpHandlers";
+import logger from "../src/config/logger";
 
 jest.mock("../src/models/ProjectModel");
 jest.mock("../src/utils/httpHandlers");
@@ -14,8 +15,8 @@ describe("ProjectController", () => {
     req = { body: {}, params: {}, clientId: "mock-client-1" } as any;
     res = {};
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -33,7 +34,7 @@ describe("ProjectController", () => {
 
       await ProjectController.create(localReq as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [response] = (handleServiceResponse as jest.Mock).mock.calls[0];
 
@@ -49,7 +50,7 @@ describe("ProjectController", () => {
 
       await ProjectController.create(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -63,7 +64,7 @@ describe("ProjectController", () => {
 
       await ProjectController.create(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -89,7 +90,7 @@ describe("ProjectController", () => {
       (req as any).clientId = undefined;
       await ProjectController.listByClient(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -104,7 +105,7 @@ describe("ProjectController", () => {
 
       await ProjectController.listByClient(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -118,7 +119,7 @@ describe("ProjectController", () => {
 
       await ProjectController.listByClient(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -146,7 +147,7 @@ describe("ProjectController", () => {
 
       await ProjectController.update(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -162,7 +163,7 @@ describe("ProjectController", () => {
 
       await ProjectController.update(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -177,7 +178,7 @@ describe("ProjectController", () => {
 
       await ProjectController.update(req as Request, res as Response);
 
-      expect(console.log).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalled();
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];

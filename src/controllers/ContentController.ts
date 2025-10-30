@@ -11,6 +11,7 @@ import { ContentModel } from "../models/ContentModel";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
+import logger from "../config/logger";
 
 export const ContentController = {
   /**
@@ -27,7 +28,7 @@ export const ContentController = {
    */
   async list(req: Request, res: Response) {
     try {
-      console.log("POST /contents/:project_id", req.body);
+      logger.info(`${req.method} ${req.url} ${req.body} `);
       let serviceResponse;
       const { project_id } = req.params;
       if (!project_id) {
@@ -50,7 +51,7 @@ export const ContentController = {
       );
       return handleServiceResponse(serviceResponse, res);
     } catch (err: any) {
-      console.error("Error in ContentController.list:", err);
+      logger.error("Error in ContentController.list:", err);
       const serviceResponse = ServiceResponse.failure(err);
       return handleServiceResponse(serviceResponse, res);
     }

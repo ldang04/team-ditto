@@ -1,3 +1,4 @@
+import logger from "../src/config/logger";
 import { ComputationController } from "../src/controllers/Computation";
 import { handleServiceResponse } from "../src/utils/httpHandlers";
 
@@ -29,8 +30,8 @@ describe("ComputationController.testVertex", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -42,7 +43,7 @@ describe("ComputationController.testVertex", () => {
 
     await ComputationController.testVertex(mockReq, mockRes);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -59,7 +60,7 @@ describe("ComputationController.testVertex", () => {
 
     await ComputationController.testVertex(mockReq, mockRes);
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -82,8 +83,8 @@ describe("ComputationController.testVertex", () => {
 
     await ComputationController.testVertex(mockReq, mockRes);
 
-    expect(console.log).toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -3,6 +3,7 @@ import { ClientController } from "../src/controllers/ClientController";
 import { ClientModel } from "../src/models/ClientModel";
 import { ApiKeyModel } from "../src/models/ApiKeyModel";
 import bcrypt from "bcrypt";
+import logger from "../src/config/logger";
 
 jest.mock("../src/models/ClientModel");
 jest.mock("../src/models/ApiKeyModel");
@@ -17,8 +18,8 @@ describe("ClientController.createClient", () => {
     req = { body: { name: "Mock Client" } };
     res = {};
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -64,8 +65,7 @@ describe("ClientController.createClient", () => {
 
     await ClientController.createClient(req as Request, res as Response);
 
-    expect(console.log).toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
 
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;
@@ -92,8 +92,7 @@ describe("ClientController.createClient", () => {
 
     await ClientController.createClient(req as Request, res as Response);
 
-    expect(console.log).toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
 
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;
@@ -113,8 +112,7 @@ describe("ClientController.createClient", () => {
 
     await ClientController.createClient(req as Request, res as Response);
 
-    expect(console.log).toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
 
     expect(mockHandle).toHaveBeenCalled();
     const [response] = mockHandle.mock.calls[0] as any;

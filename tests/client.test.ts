@@ -1,6 +1,7 @@
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
+import logger from "../src/config/logger";
 
 describe("Client API", () => {
   beforeAll(() => {
@@ -9,8 +10,8 @@ describe("Client API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(logger, "info").mockImplementation();
+    jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -22,7 +23,7 @@ describe("Client API", () => {
       .post("/api/clients/create")
       .send({ name: "Test Client Jest" });
 
-    expect(console.log).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
 
     expect(res.status).toBe(201);
     expect(res.body).toHaveProperty("success", true);
@@ -35,12 +36,14 @@ describe("Client API", () => {
       .post("/api/clients/create")
       .send({ name: "A" });
 
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
   });
 
   it("should return 400 for missing client name", async () => {
     const res = await request(app).post("/api/clients/create").send({});
+    expect(logger.info).toHaveBeenCalled();
     expect(res.status).toBe(400);
   });
 });
