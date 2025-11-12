@@ -1,8 +1,7 @@
 import logger from "../src/config/logger";
-import { ComputationController } from "../src/controllers/Computation";
+import { TextGenerationController } from "../src/controllers/TextGenerationController";
 import { ContentModel } from "../src/models/ContentModel";
-import { ProjectModel } from "../src/models/ProjectModel";
-import { ThemeModel } from "../src/models/ThemeModel";
+import { ProjectThemeService } from "../src/services/ProjectThemeService";
 import { EmbeddingService } from "../src/services/EmbeddingService";
 import { handleServiceResponse } from "../src/utils/httpHandlers";
 
@@ -11,12 +10,11 @@ jest.setTimeout(20000);
 jest.mock("../src/utils/httpHandlers", () => ({
   handleServiceResponse: jest.fn(),
 }));
-jest.mock("../src/models/ProjectModel");
-jest.mock("../src/models/ThemeModel");
 jest.mock("../src/models/ContentModel");
+jest.mock("../src/services/ProjectThemeService");
 jest.mock("../src/services/EmbeddingService");
 
-describe("ComputationController.generate", () => {
+describe("TextGenerationController.generate", () => {
   const mockRes = {} as any;
 
   beforeEach(() => {
@@ -32,7 +30,7 @@ describe("ComputationController.generate", () => {
   it("should return 400 if project_id or prompt is missing", async () => {
     const mockReq = { body: {} } as any;
 
-    await ComputationController.generate(mockReq, mockRes);
+    await TextGenerationController.generate(mockReq, mockRes);
 
     expect(logger.info).toHaveBeenCalled();
 
@@ -46,33 +44,26 @@ describe("ComputationController.generate", () => {
   });
 
   it("should return 404 if theme not found", async () => {
-    (ProjectModel.getById as jest.Mock).mockResolvedValue({
-      data: { id: "p1", theme_id: "t1" },
-      error: null,
-    });
-    (ThemeModel.getById as jest.Mock).mockResolvedValue({
-      data: null,
-      error: new Error("Theme not found"),
-    });
+    (ProjectThemeService.getProjectAndTheme as jest.Mock).mockResolvedValue(null);
 
     const mockReq = {
       body: { project_id: "p1", prompt: "Test content" },
     } as any;
 
-    await ComputationController.generate(mockReq, mockRes);
+    await TextGenerationController.generate(mockReq, mockRes);
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        message: "Theme not found",
+        message: "Project or theme not found",
       }),
       mockRes
     );
   });
 
   it("should generate content successfully", async () => {
-    (ProjectModel.getById as jest.Mock).mockResolvedValue({
-      data: {
+    (ProjectThemeService.getProjectAndTheme as jest.Mock).mockResolvedValue({
+      project: {
         id: "p1",
         name: "Proj",
         description: "Desc",
@@ -80,17 +71,13 @@ describe("ComputationController.generate", () => {
         customer_type: "Audience",
         theme_id: "t1",
       },
-      error: null,
-    });
-    (ThemeModel.getById as jest.Mock).mockResolvedValue({
-      data: {
+      theme: {
         id: "t1",
         name: "Theme",
         font: "Arial",
         tags: ["tag1"],
         inspirations: ["insp1"],
       },
-      error: null,
     });
 
     // Mock VertexAI and generation
@@ -124,7 +111,7 @@ describe("ComputationController.generate", () => {
       body: { project_id: "p1", prompt: "Make content" },
     } as any;
 
-    await ComputationController.generate(mockReq, mockRes);
+    await TextGenerationController.generate(mockReq, mockRes);
 
     expect(handleServiceResponse).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -43,10 +43,10 @@ describe("Computation API", () => {
     projectId = projectRes.body.data.id;
   });
 
-  describe("POST /api/generate", () => {
+  describe("POST /api/text/generate (new endpoint)", () => {
     it("should return 400 if required fields are missing", async () => {
       const res = await request(app)
-        .post("/api/generate")
+        .post("/api/text/generate")
         .set("Authorization", `Bearer ${apiKey}`)
         .send({});
       expect(res.status).toBe(400);
@@ -55,7 +55,7 @@ describe("Computation API", () => {
 
     it("should return 404 if project not found", async () => {
       const res = await request(app)
-        .post("/api/generate")
+        .post("/api/text/generate")
         .set("Authorization", `Bearer ${apiKey}`)
         .send({ project_id: "nonexistent", prompt: "Generate text" });
       expect([404, 500]).toContain(res.status);
@@ -63,7 +63,7 @@ describe("Computation API", () => {
 
     it("should attempt generation successfully with valid project", async () => {
       const res = await request(app)
-        .post("/api/generate")
+        .post("/api/text/generate")
         .set("Authorization", `Bearer ${apiKey}`)
         .send({
           project_id: projectId,

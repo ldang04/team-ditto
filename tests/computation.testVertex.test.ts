@@ -1,5 +1,5 @@
 import logger from "../src/config/logger";
-import { ComputationController } from "../src/controllers/Computation";
+import { HealthController } from "../src/controllers/HealthController";
 import { handleServiceResponse } from "../src/utils/httpHandlers";
 
 // Mock VertexAI
@@ -24,7 +24,7 @@ jest.mock("../src/utils/httpHandlers", () => ({
   handleServiceResponse: jest.fn(),
 }));
 
-describe("ComputationController.testVertex", () => {
+describe("HealthController.testVertex", () => {
   const mockReq = {} as any;
   const mockRes = {} as any;
 
@@ -41,7 +41,7 @@ describe("ComputationController.testVertex", () => {
   it("should return failure if GCP_PROJECT_ID is missing", async () => {
     delete process.env.GCP_PROJECT_ID;
 
-    await ComputationController.testVertex(mockReq, mockRes);
+    await HealthController.testVertex(mockReq, mockRes);
 
     expect(logger.info).toHaveBeenCalled();
 
@@ -58,7 +58,7 @@ describe("ComputationController.testVertex", () => {
     process.env.GCP_PROJECT_ID = "mock-project";
     process.env.VERTEX_MODEL_TEXT = "mock-model";
 
-    await ComputationController.testVertex(mockReq, mockRes);
+    await HealthController.testVertex(mockReq, mockRes);
 
     expect(logger.info).toHaveBeenCalled();
 
@@ -81,7 +81,7 @@ describe("ComputationController.testVertex", () => {
       }),
     }));
 
-    await ComputationController.testVertex(mockReq, mockRes);
+    await HealthController.testVertex(mockReq, mockRes);
 
     expect(logger.info).toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalled();
