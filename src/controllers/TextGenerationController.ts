@@ -1,6 +1,6 @@
 /**
  * controllers/TextGenerationController.ts
- * 
+ *
  * Handles text content generation using Vertex AI Gemini.
  */
 
@@ -8,25 +8,50 @@ import { Request, Response } from "express";
 import { VertexAI } from "@google-cloud/vertexai";
 import { ContentModel } from "../models/ContentModel";
 import { EmbeddingService } from "../services/EmbeddingService";
+import { ProjectThemeService } from "../services/ProjectThemeService";
 import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
 import logger from "../config/logger";
 
 export const TextGenerationController = {
-  async generate(
-    req: Request,
-    res: Response,
-    project: any,
-    theme: any,
-    prompt: string,
-    style_preferences: any,
-    target_audience: string,
-    variantCount: number,
-    media_type: string
-  ) {
+  async generate(req: Request, res: Response) {
     try {
-      const project_id = project.id;
+      logger.info(`${req.method} ${req.url}`, req.body);
+
+      // Parse and validate request
+      const {
+        project_id,
+        prompt,
+        style_preferences = {},
+        target_audience = "general",
+        variantCount = 3,
+        media_type = "text",
+      } = req.body;
+
+      // Validation
+      if (!project_id || !prompt) {
+        const serviceResponse = ServiceResponse.failure(
+          null,
+          "Missing required fields: project_id and prompt",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
+      // Fetch project and theme
+      const projectThemeData = await ProjectThemeService.getProjectAndTheme(project_id);
+
+      if (!projectThemeData) {
+        const serviceResponse = ServiceResponse.failure(
+          null,
+          "Project or theme not found",
+          StatusCodes.NOT_FOUND
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
+      const { project, theme } = projectThemeData;
 
       // Initialize Vertex AI
       const vertex = new VertexAI({

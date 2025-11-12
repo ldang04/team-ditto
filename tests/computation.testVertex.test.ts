@@ -1,5 +1,5 @@
 import logger from "../src/config/logger";
-import { ComputationController } from "../src/controllers/Computation";
+import { ComputationController } from "../src/controllers/ComputationController";
 import { handleServiceResponse } from "../src/utils/httpHandlers";
 
 // Mock VertexAI

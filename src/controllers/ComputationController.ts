@@ -1,13 +1,15 @@
 /**
  * controllers/ComputationController.ts
- * 
- * Main computation controller - thin routing layer.
+ *
+ * @deprecated This controller is maintained for backward compatibility only.
+ * Use the new endpoints instead:
+ * - POST /api/text/generate for text generation
+ * - POST /api/images/generate for image generation
+ * - POST /api/validate for content validation
  */
 
 import { Request, Response } from "express";
 import { VertexAI } from "@google-cloud/vertexai";
-import { ProjectModel } from "../models/ProjectModel";
-import { ThemeModel } from "../models/ThemeModel";
 import { TextGenerationController } from "./TextGenerationController";
 import { ImageGenerationController } from "./ImageGenerationController";
 import { ValidationController } from "./ValidationController";
@@ -18,68 +20,22 @@ import logger from "../config/logger";
 
 export const ComputationController = {
   /**
+   * @deprecated Use POST /api/text/generate or POST /api/images/generate instead
    * Main generate endpoint - routes to text or image generation
    */
   async generate(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body}`);
-      const {
-        project_id,
-        prompt,
-        media_type = "text",
-        style_preferences = {},
-        target_audience = "general",
-        variantCount = 3,
-        aspectRatio = "1:1",
-      } = req.body;
+      logger.warn(
+        "DEPRECATED: /api/generate is deprecated. Use /api/text/generate or /api/images/generate instead."
+      );
 
-      // Validation
-      if (!project_id || !prompt) {
-        const serviceResponse = ServiceResponse.failure(
-          null,
-          "Missing required fields: project_id and prompt",
-          StatusCodes.BAD_REQUEST
-        );
-        return handleServiceResponse(serviceResponse, res);
-      }
-
-      // Fetch project and theme
-      const { project, theme } = await this.getProjectAndTheme(project_id);
-
-      if (!project || !theme) {
-        const serviceResponse = ServiceResponse.failure(
-          null,
-          !project ? "Project not found" : "Theme not found",
-          StatusCodes.NOT_FOUND
-        );
-        return handleServiceResponse(serviceResponse, res);
-      }
+      const { media_type = "text" } = req.body;
 
       // Route to appropriate controller
       if (media_type === "image") {
-        return await ImageGenerationController.generate(
-          req,
-          res,
-          project,
-          theme,
-          prompt,
-          style_preferences,
-          target_audience,
-          variantCount,
-          aspectRatio
-        );
+        return await ImageGenerationController.generate(req, res);
       } else {
-        return await TextGenerationController.generate(
-          req,
-          res,
-          project,
-          theme,
-          prompt,
-          style_preferences,
-          target_audience,
-          variantCount,
-          media_type
-        );
+        return await TextGenerationController.generate(req, res);
       }
     } catch (error: any) {
       logger.error("Error in ComputationController.generate:", error);
@@ -89,9 +45,11 @@ export const ComputationController = {
   },
 
   /**
+   * @deprecated Use POST /api/validate instead
    * Validate content against brand guidelines
    */
   async validate(req: Request, res: Response) {
+    logger.warn("DEPRECATED: /api/validate endpoint called via ComputationController");
     return ValidationController.validate(req, res);
   },
 
@@ -100,7 +58,7 @@ export const ComputationController = {
    */
   async testVertex(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body}`);
+      logger.info(`${req.method} ${req.url}`, req.body);
 
       if (!process.env.GCP_PROJECT_ID) {
         const serviceResponse = ServiceResponse.failure(
@@ -148,27 +106,6 @@ export const ComputationController = {
       );
       return handleServiceResponse(serviceResponse, res);
     }
-  },
-
-  /**
-   * Helper: Get project and theme data
-   */
-  async getProjectAndTheme(project_id: string) {
-    const { data: project, error: projectError } = await ProjectModel.getById(
-      project_id
-    );
-    if (projectError || !project) {
-      return { project: null, theme: null };
-    }
-
-    const { data: theme, error: themeError } = await ThemeModel.getById(
-      project.theme_id
-    );
-    if (themeError || !theme) {
-      return { project, theme: null };
-    }
-
-    return { project, theme };
   },
 };
 
