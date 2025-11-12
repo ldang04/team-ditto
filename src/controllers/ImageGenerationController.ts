@@ -119,7 +119,7 @@ export const ImageGenerationController = {
 
       // STEP 7: Save to storage and database
       logger.info("STEP 7: Saving to storage");
-      const savedVariants = await this.saveGeneratedImages(
+      const savedVariants = await ImageGenerationController.saveGeneratedImages(
         generatedImages,
         project_id,
         prompt,

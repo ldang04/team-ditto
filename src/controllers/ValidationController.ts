@@ -40,7 +40,7 @@ export const ValidationController = {
 
       // Get content and embeddings
       const { projectId, textContent, contentEmbedding, actualMediaType } =
-        await this.getContentData(content_id, content, project_id, media_type);
+        await ValidationController.getContentData(content_id, content, project_id, media_type);
 
       // Fetch project and theme
       const { data: project, error: projectError } =
@@ -67,7 +67,7 @@ export const ValidationController = {
       }
 
       // Calculate brand consistency
-      const brandConsistencyScore = await this.calculateBrandConsistency(
+      const brandConsistencyScore = await ValidationController.calculateBrandConsistency(
         contentEmbedding,
         project,
         theme
@@ -86,7 +86,7 @@ export const ValidationController = {
       const passesValidation = overallScore >= 70;
 
       // Generate insights
-      const validation = this.generateValidationInsights(
+      const validation = ValidationController.generateValidationInsights(
         brandConsistencyScore,
         qualityScore,
         overallScore,
