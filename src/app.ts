@@ -4,7 +4,7 @@ import projectsRouter from "./routes/projectRoutes";
 import themesRouter from "./routes/themeRoutes";
 import contentsRouter from "./routes/contentRoutes";
 import computationRouter from "./routes/computationRoutes";
-import { ComputationController } from "./controllers/Computation";
+import { ComputationController } from "./controllers/ComputationController";
 
 const app = express();
 app.use(express.json());

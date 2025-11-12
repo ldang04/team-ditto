@@ -7,7 +7,7 @@
  */
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
-import { ComputationController } from "../controllers/Computation";
+import { ComputationController } from "../controllers/ComputationController";
 
 const router = Router();
 router.use(authMiddleware); 
