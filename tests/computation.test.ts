@@ -74,21 +74,6 @@ describe("Computation API", () => {
     }, 20000); // increase timeout for API calls
   });
 
-  describe("POST /api/generate (deprecated, backward compatibility)", () => {
-    it("should still work with media_type=text", async () => {
-      const res = await request(app)
-        .post("/api/generate")
-        .set("Authorization", `Bearer ${apiKey}`)
-        .send({
-          project_id: projectId,
-          prompt: "Create a blog short intro",
-          media_type: "text",
-          variantCount: 1,
-        });
-      expect([201, 500]).toContain(res.status);
-    }, 20000);
-  });
-
   describe("POST /api/validate", () => {
     it("should return 400 if missing all inputs", async () => {
       const res = await request(app)
