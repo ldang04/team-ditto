@@ -7,7 +7,7 @@
  *
  */
 import { supabase } from "../config/supabaseClient";
-import { Theme } from "../types";
+import { Theme, ThemeAnalysis } from "../types";
 
 export const ThemeModel = {
   /**
@@ -39,7 +39,22 @@ export const ThemeModel = {
    * @returns A promise resolving to the inserted theme record or an error.
    *
    */
-  async create(theme: Theme) {
+  async create(theme: Theme): Promise<{ data: Theme | null; error: any }> {
     return await supabase.from("themes").insert(theme).select().single();
+  },
+
+  /**
+   * Update the `analysis` JSON blob for a theme record.
+   *
+   * @param id - The theme record id to update.
+   * @param analysis - The analysis object to persist on the theme.
+   */
+  async updateAnalysis(id: string, analysis: ThemeAnalysis) {
+    return supabase
+      .from("themes")
+      .update({ analysis })
+      .eq("id", id)
+      .select()
+      .single();
   },
 };
