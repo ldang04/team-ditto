@@ -131,9 +131,7 @@ export class EmbeddingService {
    */
   static async generateImageEmbedding(imageBase64: string): Promise<number[]> {
     try {
-      logger.info(
-        `EmbeddingService: generateImageEmbedding for ${imageBase64}`
-      );
+      logger.info(`EmbeddingService: generateImageEmbedding`);
       const client = await this.auth.getClient();
       const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/multimodalembedding@001:predict`;
 
@@ -208,9 +206,7 @@ export class EmbeddingService {
     contentId: string,
     imageBase64: string
   ): Promise<number[]> {
-    logger.info(
-      `EmbeddingService: generateAndStoreImage for ${contentId}, ${imageBase64}`
-    );
+    logger.info(`EmbeddingService: generateAndStoreImage for ${contentId}`);
     const embedding = await this.generateImageEmbedding(imageBase64);
 
     try {

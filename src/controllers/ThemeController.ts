@@ -28,7 +28,7 @@ export const ThemeController = {
    */
   async create(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
       const { name } = req.body;
       const client_id = req.clientId;
@@ -80,7 +80,7 @@ export const ThemeController = {
    */
   async listByClient(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
       const client_id = req.clientId;
 

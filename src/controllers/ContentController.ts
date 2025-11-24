@@ -28,7 +28,7 @@ export const ContentController = {
    */
   async list(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
       const { project_id } = req.params;
       if (!project_id) {

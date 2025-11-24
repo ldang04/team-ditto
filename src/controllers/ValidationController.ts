@@ -36,7 +36,7 @@ export const ValidationController = {
    */
   async validate(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body}`);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       const { content_id, content, project_id, media_type } = req.body;
 
       let serviceResponse;

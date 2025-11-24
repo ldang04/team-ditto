@@ -43,7 +43,7 @@ export const ImageGenerationController = {
    */
   async generate(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url}`, req.body);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
 
       // Parse and validate request
       const {
