@@ -17,7 +17,7 @@ export const HealthController = {
    */
   async testVertex(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url}`, req.body);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
 
       if (!process.env.GCP_PROJECT_ID) {
         const serviceResponse = ServiceResponse.failure(

@@ -1,6 +1,6 @@
 /**
  * services/RAGService.ts
- * 
+ *
  * Handles Retrieval Augmented Generation (RAG) for content generation.
  */
 
@@ -11,16 +11,32 @@ import { Theme, Content } from "../types";
 import logger from "../config/logger";
 
 export interface RAGContext {
-  relevantContent: Content[];
+  relevantContents: Content[];
   similarDescriptions: string[];
   themeEmbedding: number[];
-  contentEmbeddings: number[];
   avgSimilarity: number;
 }
 
 export class RAGService {
   /**
-   * Perform RAG retrieval to get relevant context for generation
+   * Perform RAG retrieval to get relevant context for generation.
+   *
+   * This method performs the following high-level steps:
+   * 1. Generate an embedding for the user's prompt.
+   * 2. Retrieve project content and load stored embeddings.
+   * 3. Compute cosine similarity between the prompt embedding and each
+   *    content embedding, then select the top-ranked items.
+   * 4. Generate an embedding for the theme and return a `RAGContext`
+   *    containing the selected content, descriptions, the theme embedding,
+   *    and the average similarity across the returned items.
+   *
+   * If no project content exists, falls back to a theme-only context.
+   * On any unexpected error the method returns an empty context.
+   *
+   * @param projectId - Identifier of the project whose content to search.
+   * @param userPrompt - The user's prompt to embed and use for retrieval.
+   * @param theme - Theme metadata used to build fallback context and theme embedding.
+   * @returns A Promise resolving to a `RAGContext` with retrieval results.
    */
   static async performRAG(
     projectId: string,
@@ -30,24 +46,37 @@ export class RAGService {
     logger.info(`RAGService: Performing RAG for project ${projectId}`);
 
     try {
-      // Generate embedding for user prompt
+      // 1) Embed the user's prompt for semantic retrieval
       const promptEmbedding = await EmbeddingService.generateQueryEmbedding(
         userPrompt
       );
 
-      // Retrieve project content
-      const { data: projectContent, error } = await ContentModel.listByProject(
+      // 2) Retrieve content for the requested project from the DB
+      const { data: projectContents, error } = await ContentModel.listByProject(
         projectId
       );
 
-      if (error || !projectContent || projectContent.length === 0) {
+      // If there's no project content, return a theme-based context
+      if (error || !projectContents || projectContents.length === 0) {
         logger.info("RAG: No content found, using theme only");
-        return this.generateThemeBasedContext(theme);
+        const { themeText, themeEmbedding } = await this.generateThemeEmbedding(
+          theme
+        );
+
+        // Return a minimal context: no content documents, but include the theme text
+        // and its embedding so downstream generators still have meaningful context.
+        return {
+          relevantContents: [],
+          similarDescriptions: [themeText],
+          themeEmbedding,
+          // When using only the theme as context, treat similarity as maximal
+          avgSimilarity: 1.0,
+        };
       }
 
-      // Get embeddings for all content
-      const contentWithEmbeddings = await Promise.all(
-        projectContent.map(async (content) => {
+      // 3) Load stored embeddings for each content item in parallel
+      const contentsWithEmbedding = await Promise.all(
+        projectContents.map(async (content) => {
           const { data: embeddingData } = await EmbeddingsModel.getByContentId(
             content.id!
           );
@@ -55,13 +84,13 @@ export class RAGService {
             embeddingData && embeddingData.length > 0
               ? embeddingData[0].embedding
               : [];
-          return { content, embedding };
+          return { ...content, embedding };
         })
       );
 
-      // Calculate similarity scores
-      const contentWithScores = contentWithEmbeddings
-        .filter((item) => item.embedding.length > 0)
+      // 4) Compute cosine similarity between prompt and each content embedding
+      const contentWithScores = contentsWithEmbedding
+        .filter((item) => item.embedding.length > 0) // ignore items without embeddings
         .map((item) => ({
           ...item,
           similarity: EmbeddingService.cosineSimilarity(
@@ -69,35 +98,37 @@ export class RAGService {
             item.embedding
           ),
         }))
-        .sort((a, b) => b.similarity - a.similarity);
+        .sort((a, b) => b.similarity - a.similarity); // sort descending by similarity
 
-      // Select top 5 most relevant
-      const topContent = contentWithScores.slice(0, 5);
+      // 5) Select top-N relevant items (top 5)
+      const topContents = contentWithScores.slice(0, 5);
 
-      // Calculate average similarity
+      // 6) Compute average similarity across the selected items
       const avgSimilarity =
-        topContent.length > 0
-          ? topContent.reduce((sum, item) => sum + item.similarity, 0) /
-            topContent.length
+        topContents.length > 0
+          ? topContents.reduce((sum, item) => sum + item.similarity, 0) /
+            topContents.length
           : 0;
 
-      // Generate theme embedding
-      const themeText = `${theme.name}: ${theme.tags.join(", ")} inspired by ${theme.inspirations.join(", ")}`;
-      const themeEmbedding = await EmbeddingService.generateDocumentEmbedding(
-        themeText
-      );
-
       logger.info(
-        `RAG: Retrieved ${topContent.length} items, avg similarity: ${avgSimilarity.toFixed(3)}`
+        `RAG: Retrieved ${
+          topContents.length
+        } items, avg similarity: ${avgSimilarity.toFixed(3)}`
       );
 
+      // 7) Generate an embedding for the theme text to include in the context
+      const { themeText, themeEmbedding } = await this.generateThemeEmbedding(
+        theme
+      );
+
+      // 8) Build and return the RAGContext
       return {
-        relevantContent: topContent.map((item) => item.content),
-        similarDescriptions: topContent.map(
-          (item) => item.content.text_content
-        ),
+        relevantContents: topContents,
+        similarDescriptions: [
+          ...topContents.map((item) => item.prompt),
+          themeText,
+        ],
         themeEmbedding,
-        contentEmbeddings: topContent.map((item) => item.similarity),
         avgSimilarity,
       };
     } catch (error) {
@@ -106,31 +137,43 @@ export class RAGService {
     }
   }
 
-  private static generateEmptyContext(): RAGContext {
-    return {
-      relevantContent: [],
-      similarDescriptions: [],
-      themeEmbedding: [],
-      contentEmbeddings: [],
-      avgSimilarity: 0,
-    };
-  }
-
-  private static async generateThemeBasedContext(
+  /**
+   * Generate a compact theme description string and its embedding.
+   *
+   * @param theme - Theme object containing `name`, `tags`, and `inspirations`.
+   * @returns A Promise resolving to an object with `themeText` (string)
+   * and `themeEmbedding` (numeric embedding array).
+   */
+  private static async generateThemeEmbedding(
     theme: Theme
-  ): Promise<RAGContext> {
-    const themeText = `${theme.name}: ${theme.tags.join(", ")} inspired by ${theme.inspirations.join(", ")}`;
+  ): Promise<{ themeText: string; themeEmbedding: number[] }> {
+    logger.info(
+      `RAGService: generating theme description and embedding for ${theme.id}`
+    );
+    // Compose a compact descriptive string from the theme metadata
+    const themeText = `${theme.name}: ${theme.tags.join(
+      ", "
+    )} inspired by ${theme.inspirations.join(", ")}`;
+
+    // Generate a document-style embedding for the composed theme text
     const themeEmbedding = await EmbeddingService.generateDocumentEmbedding(
       themeText
     );
+    return { themeText, themeEmbedding };
+  }
 
+  /**
+   * Generate an empty RAG context.
+   *
+   * @returns An object conforming to `RAGContext` with empty arrays and
+   * zero similarity.
+   */
+  private static generateEmptyContext(): RAGContext {
     return {
-      relevantContent: [],
-      similarDescriptions: [themeText],
-      themeEmbedding,
-      contentEmbeddings: [],
-      avgSimilarity: 1.0,
+      relevantContents: [],
+      similarDescriptions: [],
+      themeEmbedding: [],
+      avgSimilarity: 0,
     };
   }
 }
-

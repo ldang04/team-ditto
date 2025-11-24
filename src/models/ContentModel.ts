@@ -8,6 +8,7 @@
  */
 import { supabase } from "../config/supabaseClient";
 import { Content } from "../types";
+import type { PostgrestResponse } from "@supabase/supabase-js";
 
 export const ContentModel = {
   /**
@@ -17,7 +18,7 @@ export const ContentModel = {
    * @returns A promise resolving to an array of content records or an error.
    *
    */
-  async listByProject(projectId: string) {
+  async listByProject(projectId: string): Promise<PostgrestResponse<Content>> {
     return await supabase
       .from("contents")
       .select("*")
@@ -31,8 +32,27 @@ export const ContentModel = {
    * @returns A promise resolving to the inserted content record or an error.
    *
    */
-  async create(content: Content) {
+  async create(
+    content: Content
+  ): Promise<{ data: Content | null; error: any }> {
     return await supabase.from("contents").insert(content).select().single();
+  },
+
+  /**
+   * Update the media_url for a content record.
+   *
+   * @param contentId - The id of the content to update.
+   * @param mediaUrl - The new media URL to set on the record.
+   * @returns A promise resolving to the updated content record or an error.
+   */
+  async updateMediaUrl(contentId: string, mediaUrl: string) {
+    // Update the media_url field and return the single updated row
+    return await supabase
+      .from("contents")
+      .update({ media_url: mediaUrl })
+      .eq("id", contentId)
+      .select()
+      .single();
   },
 
   /**

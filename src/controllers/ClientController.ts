@@ -28,7 +28,7 @@ export const ClientController = {
    */
   async createClient(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       const { name } = req.body;
 
       if (!name) {

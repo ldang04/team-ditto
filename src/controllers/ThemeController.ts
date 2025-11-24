@@ -13,10 +13,11 @@ import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
 import logger from "../config/logger";
+import { ThemeAnalysisService } from "../services/ThemeAnalysisService";
 
 export const ThemeController = {
   /**
-   * Create a new theme for a client.
+   * Create a new theme for a client and update with analysis.
    *
    * @param req - Express Request containing theme information and authenticated clientId
    * @param res - Express Response used to send back the result
@@ -27,7 +28,7 @@ export const ThemeController = {
    */
   async create(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
       const { name } = req.body;
       const client_id = req.clientId;
@@ -48,8 +49,14 @@ export const ThemeController = {
 
       if (error || !data) throw error;
 
+      const analysis = ThemeAnalysisService.analyzeTheme(data);
+      const { data: themeWithAnalytic } = await ThemeModel.updateAnalysis(
+        data.id!,
+        analysis
+      ).catch((error) => logger.error("Error in saving theme analysis", error));
+
       serviceResponse = ServiceResponse.success(
-        data,
+        themeWithAnalytic || data,
         "Theme created successfully",
         StatusCodes.CREATED
       );
@@ -73,7 +80,7 @@ export const ThemeController = {
    */
   async listByClient(req: Request, res: Response) {
     try {
-      logger.info(`${req.method} ${req.url} ${req.body} `);
+      logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
       const client_id = req.clientId;
 

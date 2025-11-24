@@ -25,8 +25,20 @@ export class EmbeddingService {
   }
 
   /**
-   * Generate embedding for document storage
-   * Task type: RETRIEVAL_DOCUMENT
+   * Generate an embedding for document storage.
+   *
+   * Sends the provided `text` to the Vertex AI Text Embeddings API
+   * (model: `text-embedding-004`) with task type `RETRIEVAL_DOCUMENT` and
+   * returns the resulting numeric embedding vector.
+   *
+   * If Vertex AI does not return an embedding or an error occurs while
+   * requesting the remote API, a deterministic local fallback embedding is
+   * generated via `generateFallbackEmbedding` to ensure the method always
+   * returns a 768-dimensional vector.
+   *
+   * @param text - The document text to embed.
+   * @returns A Promise resolving to a 768-dimensional numeric array
+   * representing the embedding vector.
    */
   static async generateDocumentEmbedding(text: string): Promise<number[]> {
     try {
@@ -63,8 +75,21 @@ export class EmbeddingService {
   }
 
   /**
-   * Generate embedding for search queries
-   * Task type: RETRIEVAL_QUERY
+   * Generate an embedding optimized for search queries.
+   *
+   * Sends the provided `text` to the Vertex AI Text Embeddings API
+   * (model: `text-embedding-004`) with task type `RETRIEVAL_QUERY` and
+   * returns the resulting numeric embedding vector suitable for retrieval
+   * and semantic search.
+   *
+   * If Vertex AI does not return an embedding or an error occurs while
+   * requesting the remote API, a deterministic local fallback embedding is
+   * generated via `generateFallbackEmbedding` to ensure the method always
+   * returns a 768-dimensional vector.
+   *
+   * @param text - The query text to embed.
+   * @returns A Promise resolving to a 768-dimensional numeric array
+   * representing the embedding vector.
    */
   static async generateQueryEmbedding(text: string): Promise<number[]> {
     try {
@@ -96,13 +121,61 @@ export class EmbeddingService {
   }
 
   /**
-   * Generate embedding and store in database
+   * Generate an embedding for image data (base64).
+   *
+   * Uses an image-capable embedding endpoint if available; otherwise falls
+   * back to the existing deterministic text-based fallback.
+   *
+   * @param imageBase64 - Base64-encoded image bytes.
+   * @returns A Promise resolving to a 768-dimensional numeric array.
    */
-  static async generateAndStore(
+  static async generateImageEmbedding(imageBase64: string): Promise<number[]> {
+    try {
+      logger.info(`EmbeddingService: generateImageEmbedding`);
+      const client = await this.auth.getClient();
+      const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/multimodalembedding@001:predict`;
+
+      const response = await client.request({
+        url,
+        method: "POST",
+        data: {
+          instances: [
+            {
+              image: {
+                bytesBase64Encoded: imageBase64,
+              },
+            },
+          ],
+        },
+      });
+
+      return (
+        (response.data as any)?.predictions?.[0]?.imageEmbedding ||
+        this.generateFallbackEmbedding(imageBase64)
+      );
+    } catch (error) {
+      logger.error("Failed to generate image embedding:", error);
+      return this.generateFallbackEmbedding(imageBase64);
+    }
+  }
+
+  /**
+   * Generate an embedding for the provided `text` and persist it.
+   *
+   * Errors encountered while storing the embedding are logged
+   *
+   * @param contentId - The external identifier for the content being stored.
+   * @param text - The text content to embed and store.
+   * @returns A Promise that resolves to the generated 768-dimensional
+   * embedding vector.
+   */
+  static async generateAndStoreText(
     contentId: string,
     text: string
   ): Promise<number[]> {
-    logger.info(`EmbeddingService: generateAndStore for ${contentId}, ${text}`);
+    logger.info(
+      `EmbeddingService: generateAndStoreText for ${contentId}, ${text}`
+    );
     const embedding = await this.generateDocumentEmbedding(text);
 
     try {
@@ -110,58 +183,106 @@ export class EmbeddingService {
         content_id: contentId,
         embedding: embedding,
         text_content: text,
+        media_type: "text",
       });
     } catch (error) {
-      logger.error("Failed to store embedding:", error);
+      logger.error("Failed to store text embedding:", error);
     }
 
     return embedding;
   }
 
   /**
-   * Calculate cosine similarity between two vectors
+   * Generate an embedding for the provided `image` and persist it.
+   *
+   * Errors encountered while storing the embedding are logged
+   *
+   * @param contentId - The external identifier for the content being stored.
+   * @param imageBase64 - The encoded image to embed and store.
+   * @returns A Promise that resolves to the generated 768-dimensional
+   * embedding vector.
    */
+  static async generateAndStoreImage(
+    contentId: string,
+    imageBase64: string
+  ): Promise<number[]> {
+    logger.info(`EmbeddingService: generateAndStoreImage for ${contentId}`);
+    const embedding = await this.generateImageEmbedding(imageBase64);
+
+    try {
+      await EmbeddingsModel.create({
+        content_id: contentId,
+        embedding: embedding,
+        text_content: imageBase64,
+        media_type: "image",
+      });
+    } catch (error) {
+      logger.error("Failed to store image embedding:", error);
+    }
+
+    return embedding;
+  }
+
+  /** Calculate cosine similarity between two vectors. */
   static cosineSimilarity(vecA: number[], vecB: number[]): number {
+    // Ensure vectors are same length and non-empty
     if (vecA.length !== vecB.length || vecA.length === 0) return 0;
 
+    // Accumulators for dot product and squared magnitudes
     let dotProduct = 0;
     let magA = 0;
     let magB = 0;
 
+    // Sum pairwise products and squared values
     for (let i = 0; i < vecA.length; i++) {
+      // contribution to dot product
       dotProduct += vecA[i] * vecB[i];
+      // accumulate squared values for magnitudes
       magA += vecA[i] * vecA[i];
       magB += vecB[i] * vecB[i];
     }
 
+    // Convert squared magnitudes to magnitudes
     magA = Math.sqrt(magA);
     magB = Math.sqrt(magB);
 
+    // If either vector has zero magnitude, similarity is undefined -> return 0
     if (magA === 0 || magB === 0) return 0;
 
+    // Cosine similarity = dot(A,B) / (|A| * |B|)
     return dotProduct / (magA * magB);
   }
 
   /**
-   * Fallback: Generate deterministic hash-based embedding
-   * Creates 768-dimensional vector to match Vertex AI dimensions
+   * Generate a deterministic fallback embedding.
+   *
+   * Produces a 768-dimensional vector derived from simple text features
+   * (word hashes, character n-grams, and basic text statistics). The
+   * resulting vector is normalized so it can be used as a drop-in substitute
+   * for Vertex AI embeddings when the remote service is unavailable.
+   *
+   * @param text - Input text to convert into an embedding.
+   * @returns A 768-dimensional normalized numeric array.
    */
   private static generateFallbackEmbedding(text: string): number[] {
+    // Target embedding dimensionality to match Vertex AI model
     const dimensions = 768; // Match Vertex AI text-embedding-004
     const embedding = new Array(dimensions).fill(0);
 
+    // Simple normalization and tokenization
     const normalized = text.toLowerCase().trim();
     const words = normalized.split(/\s+/);
     const chars = normalized.split("");
 
-    // Feature 1: Word-based features
+    // Feature 1: Word-based features — boost positions based on hashed word
+    // earlier words contribute more (1 / (idx + 1))
     words.forEach((word, idx) => {
       const hash = this.hashString(word);
       const position = hash % dimensions;
       embedding[position] += 1 / (idx + 1);
     });
 
-    // Feature 2: Character n-grams
+    // Feature 2: Character n-grams — add small weights for trigrams
     for (let i = 0; i < chars.length - 2; i++) {
       const trigram = chars.slice(i, i + 3).join("");
       const hash = this.hashString(trigram);
@@ -169,12 +290,12 @@ export class EmbeddingService {
       embedding[position] += 0.5;
     }
 
-    // Feature 3: Text statistics
-    embedding[0] = words.length / 100;
-    embedding[1] = chars.length / 1000;
-    embedding[2] = (text.match(/[.!?]/g) || []).length / 10;
+    // Feature 3: Simple text statistics placed into reserved positions
+    embedding[0] = words.length / 100; // relative word count
+    embedding[1] = chars.length / 1000; // relative character count
+    embedding[2] = (text.match(/[.!?]/g) || []).length / 10; // sentence-ish count
 
-    // Normalize the vector
+    // Normalize the vector to unit length
     const magnitude = Math.sqrt(
       embedding.reduce((sum, val) => sum + val * val, 0)
     );
@@ -182,15 +303,25 @@ export class EmbeddingService {
   }
 
   /**
-   * Hash function for fallback embedding
+   * Deterministic hash function used by the fallback embedding generator.
+   *
+   * @param str - Input string to hash.
+   * @returns A non-negative integer hash value.
    */
   private static hashString(str: string): number {
+    // Starting accumulator
     let hash = 0;
+
+    // Mix each character into the hash using a common bitwise pattern
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
+      // shift left 5 (multiply by 32), subtract previous hash, add char
       hash = (hash << 5) - hash + char;
+      // Force to 32-bit integer to keep behavior consistent across runtimes
       hash = hash & hash;
     }
+
+    // Return absolute value to ensure non-negative bucket indices
     return Math.abs(hash);
   }
 }

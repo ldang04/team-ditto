@@ -7,6 +7,7 @@
  */
 import { supabase } from "../config/supabaseClient";
 import { Embedding } from "../types";
+import type { PostgrestResponse } from "@supabase/supabase-js";
 
 export const EmbeddingsModel = {
   /**
@@ -31,7 +32,9 @@ export const EmbeddingsModel = {
    * @returns A promise resolving to all embeddings linked to the given content ID or an error.
    *
    */
-  async getByContentId(contentId: string) {
+  async getByContentId(
+    contentId: string
+  ): Promise<PostgrestResponse<Embedding>> {
     return await supabase
       .from("embeddings")
       .select("*")
