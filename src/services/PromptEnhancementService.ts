@@ -98,6 +98,7 @@ export class PromptEnhancementService {
     userPrompt: string;
     projectName: string;
     projectDescription: string;
+    themeInspirations: string[];
     stylePreferences?: Record<string, any>;
     targetAudience?: string;
   }): { prompt: string; negativePrompt: string } {
@@ -105,6 +106,7 @@ export class PromptEnhancementService {
       userPrompt,
       projectName,
       projectDescription,
+      themeInspirations,
       stylePreferences = {},
       targetAudience = "general",
     } = params;
@@ -115,6 +117,11 @@ export class PromptEnhancementService {
     const promptParts = [
       // Main subject from user
       userPrompt,
+
+      // Brand inspirations
+      themeInspirations.length > 0
+        ? `inspired by ${themeInspirations.slice(0, 2).join(" and ")}`
+        : "",
 
       // Project context
       `for ${projectName}: ${projectDescription}`,

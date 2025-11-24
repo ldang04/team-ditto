@@ -6,7 +6,7 @@
 
 import { Theme, ThemeAnalysis, ColorPalette } from "../types";
 import logger from "../config/logger";
-import { colorKeywords, styleKeywords } from "../config/keywords";
+import { colorKeywords, colorMap, styleKeywords } from "../config/keywords";
 
 export class ThemeAnalysisService {
   /**
@@ -25,6 +25,7 @@ export class ThemeAnalysisService {
     const styleScores = this.calculateStyleScores(theme);
     const dominantStyles = Object.entries(styleScores)
       .sort((a, b) => b[1] - a[1]) // sort descending by score
+      .filter((a) => a[1] > 0) // filter by score > 0
       .slice(0, 3) // keep top 3 styles
       .map(([style]) => style);
 
@@ -61,79 +62,168 @@ export class ThemeAnalysisService {
    * @returns A `ColorPalette` with `primary`, `secondary`, `accent` arrays and a `mood`.
    */
   private static extractColorPalette(theme: Theme): ColorPalette {
-    const allTokens = [...theme.tags, ...theme.inspirations, theme.name].join(
-      " "
+    logger.info(`ThemeAnalysisService: Extracting color palette`);
+
+    const tokens = [...theme.tags, ...theme.inspirations, theme.name]
+      .join(" ")
+      .toLowerCase();
+
+    const { explicit, adjectives, combined } = this.getColors(tokens);
+    const { primary, secondary, accent } = this.assignPalette(
+      explicit,
+      adjectives,
+      combined
     );
-    const lowerTokens = allTokens.toLowerCase();
 
-    const colorMapping: Record<
-      string,
-      { category: "primary" | "secondary" | "accent"; color: string }
-    > = {
-      red: { category: "primary", color: "red" },
-      blue: { category: "primary", color: "blue" },
-      green: { category: "secondary", color: "green" },
-      yellow: { category: "accent", color: "yellow" },
-      orange: { category: "accent", color: "orange" },
-      purple: { category: "secondary", color: "purple" },
-      pink: { category: "secondary", color: "pink" },
-      black: { category: "primary", color: "black" },
-      white: { category: "primary", color: "white" },
-      gray: { category: "secondary", color: "gray" },
-      grey: { category: "secondary", color: "gray" },
-      gold: { category: "accent", color: "gold" },
-      silver: { category: "accent", color: "silver" },
-    };
-
-    // Initialize empty buckets
     const palette: ColorPalette = {
-      primary: [],
-      secondary: [],
-      accent: [],
+      primary,
+      secondary,
+      accent,
       mood: "neutral",
     };
 
-    // Extract explicit color mentions by scanning tokens
-    Object.entries(colorMapping).forEach(([keyword, config]) => {
-      if (lowerTokens.includes(keyword)) {
-        palette[config.category].push(config.color);
-      }
+    // Mood inference
+    const warmColors = ["red", "orange", "yellow"];
+    const coolColors = ["blue", "green", "purple", "teal"];
+    const energeticKeywords = ["playful", "vibrant", "bright", "dynamic"];
+    const calmKeywords = ["calm", "serene", "soft", "gentle"];
+    const professionalKeywords = ["professional", "corporate"];
+
+    const allColors = [
+      ...palette.primary,
+      ...palette.secondary,
+      ...palette.accent,
+    ];
+
+    if (allColors.some((c) => warmColors.includes(c))) {
+      palette.mood = "energetic";
+    } else if (allColors.some((c) => coolColors.includes(c))) {
+      palette.mood = "calm";
+    }
+    if (energeticKeywords.some((k) => tokens.includes(k)))
+      palette.mood = "energetic";
+    if (calmKeywords.some((k) => tokens.includes(k))) palette.mood = "calm";
+    if (professionalKeywords.some((k) => tokens.includes(k)))
+      palette.mood = "professional";
+
+    logger.info(`ThemeAnalysisService: Extracted color palette: ${palette}`);
+    return palette;
+  }
+
+  /**
+   * Detect explicit color mentions and adjective-derived color suggestions
+   * from a token string.
+   *
+   * - explicit: colors mapped from explicit keywords (via `colorMap`).
+   * - adjectives: colors implied by descriptive words (e.g. "vibrant" -> pink, yellow).
+   * - combined: union of explicit + adjective colors with fallback rules
+   *   when no direct matches are found.
+   *
+   * @param tokens - Lowercased combined tokens from theme fields.
+   * @returns An object containing `explicit`, `adjectives`, and `combined` color arrays.
+   */
+  private static getColors(tokens: string): {
+    explicit: string[];
+    adjectives: string[];
+    combined: string[];
+  } {
+    // Explicit color detection
+    const explicit = [
+      ...new Set(
+        Object.keys(colorMap)
+          .sort((a, b) => b.length - a.length)
+          .filter((key) => tokens.includes(key))
+          .map((key) => colorMap[key])
+      ),
+    ];
+
+    // Adjective colors
+    const adjectiveMap: Record<string, string[]> = {
+      colorful: ["red", "blue", "yellow", "green", "orange"],
+      vibrant: ["pink", "yellow", "blue"],
+      bright: ["yellow", "orange", "pink"],
+      playful: ["pink", "yellow", "blue"],
+      fun: ["pink", "yellow", "blue"],
+      warm: ["red", "orange", "yellow"],
+      cool: ["blue", "green", "purple"],
+      pastel: ["pink", "beige", "lavender"],
+      neon: ["pink", "green", "blue"],
+    };
+
+    const adjectives = [
+      ...new Set(
+        Object.entries(adjectiveMap)
+          .filter(([word]) => tokens.includes(word))
+          .flatMap(([, colors]) => colors)
+      ),
+    ];
+
+    let combined = [...explicit, ...adjectives];
+
+    // Fallback if no colors detected
+    if (combined.length === 0) {
+      if (
+        tokens.includes("playful") ||
+        tokens.includes("fun") ||
+        tokens.includes("friendly")
+      )
+        combined = ["pink", "yellow", "blue"];
+      else if (tokens.includes("professional") || tokens.includes("corporate"))
+        combined = ["blue", "gray", "white"];
+      else if (tokens.includes("modern") || tokens.includes("minimal"))
+        combined = ["white", "black", "gray"];
+      else combined = ["purple", "white", "blue"];
+    }
+
+    combined = [...new Set(combined)];
+
+    return { explicit, adjectives, combined };
+  }
+
+  /**
+   * Assign colors into primary, secondary and accent buckets using a
+   * lightweight weighted strategy.
+   *
+   * Weights:
+   * - explicit mentions => weight 3
+   * - adjective-derived => weight 2
+   * - fallback combined => weight 1 (used only when explicit/adjective lists are empty)
+   *
+   * The method deduplicates colors, keeps the highest weight per color,
+   * sorts by weight and returns the top colors for each bucket.
+   *
+   * @param explicit - Explicitly detected colors.
+   * @param adjectives - Colors suggested by adjectives.
+   * @param combined - Combined/fallback color candidates.
+   * @returns An object with `primary`, `secondary`, and `accent` arrays.
+   */
+  private static assignPalette(
+    explicit: string[],
+    adjectives: string[],
+    combined: string[]
+  ) {
+    const weighted: { color: string; weight: number }[] = [];
+
+    explicit.forEach((c) => weighted.push({ color: c, weight: 3 }));
+    adjectives.forEach((c) => weighted.push({ color: c, weight: 2 }));
+
+    if (explicit.length === 0 && adjectives.length === 0)
+      combined.forEach((c) => weighted.push({ color: c, weight: 1 }));
+
+    const map = new Map<string, number>();
+    weighted.forEach(({ color, weight }) => {
+      map.set(color, Math.max(weight, map.get(color) || 0));
     });
 
-    // If no explicit colors were found, infer defaults from keywords
-    // (e.g. 'corporate' -> blue/gray, 'modern' -> white/black)
-    if (
-      palette.primary.length === 0 &&
-      palette.secondary.length === 0 &&
-      palette.accent.length === 0
-    ) {
-      if (
-        lowerTokens.includes("corporate") ||
-        lowerTokens.includes("professional")
-      ) {
-        palette.primary = ["blue", "gray"];
-        palette.accent = ["white"];
-      } else if (lowerTokens.includes("modern")) {
-        palette.primary = ["white", "black"];
-        palette.secondary = ["gray"];
-      } else {
-        // Generic fallback palette
-        palette.primary = ["blue"];
-        palette.secondary = ["gray", "white"];
-      }
-    }
+    const sorted = [...map.entries()]
+      .map(([color, weight]) => ({ color, weight }))
+      .sort((a, b) => b.weight - a.weight);
 
-    // Derive a simple mood label from the discovered colors:
-    // energetic (warm accents) | professional (blue primary) | balanced (fallback)
-    if (palette.accent.some((c) => ["red", "orange", "yellow"].includes(c))) {
-      palette.mood = "energetic";
-    } else if (palette.primary.includes("blue")) {
-      palette.mood = "professional";
-    } else {
-      palette.mood = "balanced";
-    }
+    const primary = sorted.slice(0, 2).map((x) => x.color);
+    const secondary = sorted.slice(2, 4).map((x) => x.color);
+    const accent = sorted.slice(4, 7).map((x) => x.color);
 
-    return palette;
+    return { primary, secondary, accent };
   }
 
   /**
@@ -143,6 +233,10 @@ export class ThemeAnalysisService {
    * @returns A record mapping style names to numeric scores (0-100).
    */
   private static calculateStyleScores(theme: Theme): Record<string, number> {
+    logger.info(
+      `ThemeAnalysisService: Calculating style scores: ${theme.name}`
+    );
+
     // Combine all theme tokens into a single lowercased string
     const allTokens = [...theme.tags, ...theme.inspirations, theme.name].join(
       " "
@@ -176,6 +270,7 @@ export class ThemeAnalysisService {
       scores[style] = Math.min(score, 100);
     });
 
+    logger.info(`ThemeAnalysisService: Calculated style scores: ${scores}`);
     // Return the mapping of style -> score for downstream use
     return scores;
   }
@@ -187,6 +282,7 @@ export class ThemeAnalysisService {
    * @returns A short mood string (e.g. 'energetic', 'calm', 'professional').
    */
   private static determineVisualMood(theme: Theme): string {
+    logger.info(`ThemeAnalysisService: Anaylising visual mood: ${theme.name}`);
     // Aggregate all theme tokens into one lowercased string for matching
     const allTokens = [...theme.tags, ...theme.inspirations, theme.name].join(
       " "
@@ -217,6 +313,7 @@ export class ThemeAnalysisService {
       }
     });
 
+    logger.info(`ThemeAnalysisService: Dominant visual mood: ${dominantMood}`);
     return dominantMood;
   }
 
@@ -233,6 +330,9 @@ export class ThemeAnalysisService {
    * @returns Numeric complexity score between 0 and 100.
    */
   private static calculateComplexityScore(theme: Theme): number {
+    logger.info(
+      `ThemeAnalysisService: Calculating complexity scores: ${theme.name}`
+    );
     let score = 50; // baseline
 
     // Tags: each tag adds up to 5 points, capped at +20
@@ -256,7 +356,10 @@ export class ThemeAnalysisService {
     if (styleCount > 2) score += 15; // boost when many style keywords found
 
     // Clamp final score to [0,100]
-    return Math.max(0, Math.min(100, score));
+    const result = Math.max(0, Math.min(100, score));
+    logger.info(`ThemeAnalysisService: Calculated style score: ${result}`);
+
+    return result;
   }
 
   /**
@@ -272,11 +375,37 @@ export class ThemeAnalysisService {
    * @returns Numeric brand strength score between 0 and 100.
    */
   private static calculateBrandStrength(theme: Theme): number {
-    let score = 30; // baseline
+    logger.info(
+      `ThemeAnalysisService: Calculated brand strength: ${theme.name}`
+    );
+    // 1) Sanitize tags (remove junk)
+    const cleanedTags = theme.tags
+      .filter((t) => typeof t === "string")
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0 && t.length < 40) // too long = junk
+      .filter((t) => /^[a-z0-9\-_\s]+$/i.test(t)); // remove special chars, SQL, symbols
 
-    // Tags: reward more tags (up to +25)
-    if (theme.tags.length >= 5) score += 25;
-    else if (theme.tags.length >= 3) score += 15;
+    // 2) Sanitize inspirations
+    const cleanedInsp = theme.inspirations
+      .filter((i) => typeof i === "string")
+      .map((i) => i.trim().toLowerCase())
+      .filter((i) => i.length > 0);
+
+    const tokens = [
+      ...cleanedTags,
+      ...cleanedInsp,
+      theme.name.toLowerCase(),
+    ].join(" ");
+
+    let score = 20; // lower baseline for accuracy
+
+    // TAG QUALITY (not just quantity)
+    const meaningfulTags = cleanedTags.filter(
+      (tag) => !/^\d+$/.test(tag) && tag.length > 2
+    );
+
+    if (meaningfulTags.length >= 5) score += 25;
+    else if (meaningfulTags.length >= 3) score += 15;
 
     // Inspirations: reward more inspiration sources (up to +20)
     if (theme.inspirations.length >= 3) score += 20;
@@ -294,7 +423,22 @@ export class ThemeAnalysisService {
     );
     if (hasColors) score += 10;
 
-    // Clamp to [0,100]
-    return Math.max(0, Math.min(100, score));
+    // STYLE SIGNALS (modern, playful, elegant)
+    if (styleKeywords.some((s) => tokens.includes(s))) score += 10;
+
+    // Negative scoring for REALLY junk input (SQL injection / special chars)
+    const hasJunk =
+      theme.tags.some((t) => typeof t === "string" && /['";<>]/.test(t)) ||
+      theme.inspirations.some(
+        (i) => typeof i === "string" && /['";<>]/.test(i)
+      );
+
+    if (hasJunk) score -= 15;
+
+    // Clamp final score to [0,100]
+    const result = Math.max(0, Math.min(100, score));
+    logger.info(`ThemeAnalysisService: Calculated brand strength: ${result}`);
+
+    return result;
   }
 }

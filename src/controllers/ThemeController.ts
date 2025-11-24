@@ -50,12 +50,13 @@ export const ThemeController = {
       if (error || !data) throw error;
 
       const analysis = ThemeAnalysisService.analyzeTheme(data);
-      await ThemeModel.updateAnalysis(data.id!, analysis).catch((error) =>
-        logger.error("Error in saving theme analysis", error)
-      );
+      const { data: themeWithAnalytic } = await ThemeModel.updateAnalysis(
+        data.id!,
+        analysis
+      ).catch((error) => logger.error("Error in saving theme analysis", error));
 
       serviceResponse = ServiceResponse.success(
-        data,
+        themeWithAnalytic || data,
         "Theme created successfully",
         StatusCodes.CREATED
       );

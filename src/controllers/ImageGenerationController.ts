@@ -144,6 +144,7 @@ export const ImageGenerationController = {
           userPrompt: enhancedPrompt,
           projectName: project.name,
           projectDescription: project.description,
+          themeInspirations: theme.inspirations,
           stylePreferences: style_preferences,
           targetAudience: target_audience,
         });
