@@ -300,6 +300,7 @@ export class ContentGenerationPipeline {
         similarDescriptions: [],
         themeEmbedding: [],
         avgSimilarity: 0,
+        method: "theme_only",
       };
     }
   }

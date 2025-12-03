@@ -98,6 +98,7 @@ describe("ContentGenerationPipeline", () => {
     similarDescriptions: ["desc1", "desc2"],
     themeEmbedding: [0.1, 0.2, 0.3],
     avgSimilarity: 0.75,
+    method: "hybrid",
   };
 
   const mockGeneratedVariants = [
@@ -305,6 +306,7 @@ describe("ContentGenerationPipeline", () => {
         similarDescriptions: [],
         themeEmbedding: [],
         avgSimilarity: 0,
+        method: "theme_only",
       });
 
       const result = await ContentGenerationPipeline.execute({
