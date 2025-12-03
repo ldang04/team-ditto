@@ -19,6 +19,18 @@ This document lists issues discovered while auditing and augmenting tests across
   - Issue: `generateQueryEmbedding` and `generateImageEmbedding` previously returned empty arrays when the remote Vertex AI API returned an empty embedding payload. This caused downstream code to see zero-length embeddings.
   - Fix: Service functions now detect empty embeddings returned by the API and use the deterministic local `generateFallbackEmbedding` instead. 
 
+## Summary of API test Bug Findings & Fixes
+
+- **ThemeController: validation and normalization in create**
+  - Files: `src/controllers/ThemeController.ts`, tests in `tests/theme.api.test.ts`, `tests/themeController.unit.test.ts`
+  - Issues:
+    - Requests with minimal names (e.g., `"a"`) triggered `TypeError` during analysis when optional fields were missing or malformed.
+    - `tags` could be missing, empty, or not an array, leading to inconsistent records and analysis errors.
+    - `inspirations` could be non-iterable, causing runtime failures in `ThemeAnalysisService.analyzeTheme`.
+  - Fixes:
+    - Require `tags` to be a non-empty array for theme creation; return 400 when invalid.
+    - Normalize `inspirations` to an array: if missing or not an array, default to `[]` before persistence.
+
 ---
 
 Generated on: 2025-12-03

@@ -30,10 +30,11 @@ export const ThemeController = {
     try {
       logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       let serviceResponse;
-      const { name } = req.body;
+      const { name, tags, inspirations } = req.body;
       const client_id = req.clientId;
 
-      if (!name || String(name).trim().length === 0) {
+      const tagsValid = Array.isArray(tags) && tags.length > 0;
+      if (!name || String(name).trim().length === 0 || !tagsValid) {
         serviceResponse = ServiceResponse.failure(
           null,
           "Missing required fields",
@@ -42,8 +43,14 @@ export const ThemeController = {
         return handleServiceResponse(serviceResponse, res);
       }
 
+      // Normalize optional inspirations: ensure array, default to []
+      const normalizedInspirations = Array.isArray(inspirations)
+        ? inspirations
+        : [];
+
       const { data, error } = await ThemeModel.create({
         ...req.body,
+        inspirations: normalizedInspirations,
         client_id,
       });
 

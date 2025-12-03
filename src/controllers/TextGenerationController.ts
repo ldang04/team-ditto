@@ -89,7 +89,7 @@ export const TextGenerationController = {
           "text"
         );
 
-      if (savedVariants.length === 0) {
+      if (savedVariants.length === 0 && validatedVariantCount !== 0) {
         throw Error("Failed to save any content variants to database");
       }
 
