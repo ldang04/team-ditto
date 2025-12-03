@@ -18,6 +18,11 @@ import { RAGService, RAGContext } from "./RAGService";
 import { PromptEnhancementService } from "./PromptEnhancementService";
 import { TextGenerationService } from "./TextGenerationService";
 import { QualityScoringService } from "./QualityScoringService";
+import {
+  ContentAnalysisService,
+  ContentAnalysis,
+  DiversityAnalysis,
+} from "./ContentAnalysisService";
 import logger from "../config/logger";
 
 /**
@@ -39,6 +44,9 @@ export interface GenerationInput {
 export interface VariantWithScore {
   content: string;
   qualityScore: number;
+  analysis: ContentAnalysis;
+  rank: number;
+  compositeScore: number;
 }
 
 /**
@@ -54,7 +62,10 @@ export interface PipelineResult {
     enhancedPrompt: string;
     predictedQuality: number;
     averageQuality: number;
+    averageCompositeScore: number;
+    diversity: DiversityAnalysis;
     generationTimestamp: string;
+    pipelineStages: string[];
   };
 }
 
@@ -148,36 +159,80 @@ export class ContentGenerationPipeline {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Stage 5: Score each generated variant
+    // Stage 5: Basic quality scoring
     // ─────────────────────────────────────────────────────────────────────────
     logger.info("ContentGenerationPipeline: Stage 5 - Quality scoring");
 
-    const variantsWithScores: VariantWithScore[] = rawVariants.map(
-      (content) => {
-        const qualityScore =
-          media_type === "image"
-            ? QualityScoringService.scoreImageQuality(content, theme)
-            : QualityScoringService.scoreTextQuality(content);
-
-        return { content, qualityScore };
-      }
+    const qualityScores = rawVariants.map((content) =>
+      media_type === "image"
+        ? QualityScoringService.scoreImageQuality(content, theme)
+        : QualityScoringService.scoreTextQuality(content)
     );
 
-    // Calculate average quality across all variants
+    // ─────────────────────────────────────────────────────────────────────────
+    // Stage 6: Advanced content analysis (readability, sentiment, keywords)
+    // ─────────────────────────────────────────────────────────────────────────
+    logger.info("ContentGenerationPipeline: Stage 6 - Content analysis");
+
+    const contentAnalyses = rawVariants.map((content) =>
+      ContentAnalysisService.analyzeContent(content, theme)
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Stage 7: Diversity analysis (detect duplicates, measure variety)
+    // ─────────────────────────────────────────────────────────────────────────
+    logger.info("ContentGenerationPipeline: Stage 7 - Diversity analysis");
+
+    const diversity = ContentAnalysisService.analyzeDiversity(rawVariants);
+
+    logger.info(
+      `ContentGenerationPipeline: Diversity score: ${diversity.diversity_score}, duplicates: ${diversity.duplicate_pairs.length}`
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Stage 8: Rank variants by composite score (best first)
+    // ─────────────────────────────────────────────────────────────────────────
+    logger.info("ContentGenerationPipeline: Stage 8 - Variant ranking");
+
+    const rankings = ContentAnalysisService.rankVariants(
+      rawVariants,
+      contentAnalyses,
+      qualityScores
+    );
+
+    // Build final variants array sorted by rank
+    const variantsWithScores: VariantWithScore[] = rankings.map(
+      (ranking, rank) => ({
+        content: rawVariants[ranking.index],
+        qualityScore: qualityScores[ranking.index],
+        analysis: contentAnalyses[ranking.index],
+        rank: rank + 1, // 1-indexed rank
+        compositeScore: ranking.compositeScore,
+      })
+    );
+
+    // Calculate averages
     const averageQuality =
-      variantsWithScores.length > 0
+      qualityScores.length > 0
         ? Math.round(
-            variantsWithScores.reduce((sum, v) => sum + v.qualityScore, 0) /
-              variantsWithScores.length
+            qualityScores.reduce((sum, v) => sum + v, 0) / qualityScores.length
+          )
+        : 0;
+
+    const averageCompositeScore =
+      rankings.length > 0
+        ? Math.round(
+            rankings.reduce((sum, r) => sum + r.compositeScore, 0) /
+              rankings.length
           )
         : 0;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Stage 6: Assemble and return result
+    // Stage 9: Assemble and return result
     // ─────────────────────────────────────────────────────────────────────────
     const elapsed = Date.now() - startTime;
     logger.info(
-      `ContentGenerationPipeline: Complete in ${elapsed}ms - ${variantsWithScores.length} variants, avg quality: ${averageQuality}`
+      `ContentGenerationPipeline: Complete in ${elapsed}ms - ${variantsWithScores.length} variants, avg composite: ${averageCompositeScore}`
     );
 
     return {
@@ -189,7 +244,20 @@ export class ContentGenerationPipeline {
         enhancedPrompt,
         predictedQuality,
         averageQuality,
+        averageCompositeScore,
+        diversity,
         generationTimestamp: new Date().toISOString(),
+        pipelineStages: [
+          "theme_analysis",
+          "rag_retrieval",
+          "prompt_enhancement",
+          "quality_prediction",
+          "ai_generation",
+          "quality_scoring",
+          "content_analysis",
+          "diversity_analysis",
+          "variant_ranking",
+        ],
       },
     };
   }

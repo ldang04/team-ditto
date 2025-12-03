@@ -120,11 +120,33 @@ export const TextGenerationController = {
           media_type: "text",
           variant_count: savedVariants.length,
           timestamp: metadata.generationTimestamp,
+          // Pipeline execution info
+          pipeline_stages: metadata.pipelineStages,
           // Enriched quality metrics
           quality: {
             predicted: metadata.predictedQuality,
             average: metadata.averageQuality,
-            per_variant: savedVariants.map((v) => v.quality_score),
+            average_composite: metadata.averageCompositeScore,
+            per_variant: savedVariants.map((v) => ({
+              quality_score: v.quality_score,
+              composite_score: v.composite_score,
+              rank: v.rank,
+            })),
+          },
+          // Content analysis per variant
+          content_analysis: savedVariants.map((v) => ({
+            content_id: v.content_id,
+            readability: v.analysis?.readability,
+            sentiment: v.analysis?.sentiment,
+            keyword_density: v.analysis?.keyword_density,
+            structure: v.analysis?.structure,
+          })),
+          // Diversity metrics
+          diversity: {
+            score: metadata.diversity.diversity_score,
+            avg_pairwise_similarity: metadata.diversity.avg_pairwise_similarity,
+            unique_variants: metadata.diversity.unique_variant_count,
+            duplicate_pairs: metadata.diversity.duplicate_pairs,
           },
           // Theme analysis summary
           theme_analysis: {
@@ -185,6 +207,9 @@ export const TextGenerationController = {
           content_id: data.id,
           generated_content: variant.content,
           quality_score: variant.qualityScore,
+          composite_score: variant.compositeScore,
+          rank: variant.rank,
+          analysis: variant.analysis,
         });
 
         logger.info(
