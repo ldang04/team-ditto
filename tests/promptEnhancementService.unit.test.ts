@@ -6,26 +6,26 @@
  * - buildBrandedPrompt(params)
  * - scoreRagQuality(themeAnalysis, ragContext, promptLength)
  *
- * Partitions (general):
- * - T1: valid / typical inputs — all required fields present and in expected ranges
- * - T2: invalid inputs — missing/empty required fields, or explicit error-triggering values
- * - T3: atypical valid inputs — boundary values, empty arrays, zero/edge numbers
- * - T4: boundary equality checks (at/above/below thresholds used by logic)
+ * Partitions (inputs) — definitions:
+ * - T1 (Valid): Typical valid inputs where all required fields are present and within expected ranges.
+ * - T2 (Invalid): Inputs that are missing required fields, null/undefined where not allowed, or deliberately out-of-range.
+ * - T3 (Atypical-but-valid): Edge/atypical inputs that are still valid (empty arrays, missing optional fields, multiple items).
+ * - T4 (Boundary): Values exactly at decision thresholds (e.g., avgSimilarity 0.3/0.5/0.7, word count 20/80, complexity_score 70).
  *
  * Mapping (per-function):
  * - enhancePromtWithRAG:
- *   - existing similarDescriptions (T1)
- *   - no similarDescriptions (T3)
- *   - missing palette / missing styles (T3)
+ *   - T1: has RAG similarDescriptions and full theme palette/styles.
+ *   - T3: no similarDescriptions; missing color_palette or dominant_styles; multiple dominant_styles (>2).
+ *   - T2: undefined ragContext or undefined themeAnalysis.
  * - buildBrandedPrompt:
- *   - full params (T1)
- *   - empty themeInspirations (T3)
- *   - missing optional fields (T3)
+ *   - T1: full params present (userPrompt, projectName, projectDescription, themeInspirations, stylePreferences, targetAudience).
+ *   - T3: empty themeInspirations; missing optional fields (stylePreferences/targetAudience); long inspiration arrays.
+ *   - T2: empty userPrompt; missing projectName/projectDescription (treated tolerantly).
  * - scoreRagQuality:
- *   - avgSimilarity > 0.7 (T1)
- *   - avgSimilarity == 0.7 (boundary T4)
- *   - very short promptLength (T2)
- *   - negative brand_strength (T2, clamps at 0)
+ *   - T1: avgSimilarity > 0.7, promptLength producing wordCount in [20,80], complexity_score > 70.
+ *   - T4: avgSimilarity exactly 0.7/0.5/0.3; wordCount exactly 20 or 80; complexity_score exactly 70.
+ *   - T2: very short promptLength; negative brand_strength; extreme values triggering clamping.
+ *
  */
 
 import logger from "../src/config/logger";
@@ -53,7 +53,7 @@ describe("PromptEnhancementService (partitioned)", () => {
     } as any;
     const ragEmpty = { avgSimilarity: 0.1, similarDescriptions: [] } as any;
 
-    // Valid typical inputT1:  — should contain user prompt, RAG hint, color phrase, mood and style
+    // Valid typical input T1: — should contain user prompt, RAG hint, color phrase, mood and style
     it("produces an enhanced prompt when RAG context and theme are present (T1)", () => {
       const userPrompt = "A product hero image"; // tests T1
       const out = PromptEnhancementService.enhancePromtWithRAG(
@@ -94,6 +94,37 @@ describe("PromptEnhancementService (partitioned)", () => {
       expect(out).toContain("Hello");
       // still includes mood
       expect(out).toMatch(/with a calm atmosphere/);
+    });
+
+    // atypical T3: — multiple (>2) dominant styles should format with commas and 'and'
+    it("formats multiple dominant styles correctly (T3)", () => {
+      const themeManyStyles = {
+        ...baseTheme,
+        dominant_styles: ["one", "two", "three"],
+      } as any;
+      const out = PromptEnhancementService.enhancePromtWithRAG(
+        "X",
+        ragEmpty,
+        themeManyStyles
+      );
+      // Expect 'one, two and three' phrase
+      expect(out).toMatch(/one, two and three/);
+    });
+
+    // invalid T2: — calling with undefined ragContext should throw (invalid input)
+    it("throws if ragContext is undefined (invalid)", () => {
+      expect(() =>
+        // @ts-expect-error: deliberate invalid input
+        PromptEnhancementService.enhancePromtWithRAG("p", undefined, baseTheme)
+      ).toThrow();
+    });
+
+    // invalid T2: — calling with undefined themeAnalysis should throw (invalid)
+    it("throws if themeAnalysis is undefined (invalid)", () => {
+      expect(() =>
+        // @ts-expect-error: deliberate invalid input
+        PromptEnhancementService.enhancePromtWithRAG("p", ragEmpty, undefined)
+      ).toThrow();
     });
   });
 
@@ -136,12 +167,33 @@ describe("PromptEnhancementService (partitioned)", () => {
       expect(out2.prompt).toMatch(/designed for general audience/);
     });
 
-    // T2: missing userPrompt (invalid-ish) — still composes but userPrompt empty
+    // Invalid T2: missing userPrompt — still composes but userPrompt empty
     it("handles empty userPrompt without throwing (T2)", () => {
       const p = { ...goodParams, userPrompt: "" } as any;
       const out = PromptEnhancementService.buildBrandedPrompt(p);
       // prompt shouldn't be empty because projectName/description present
       expect(out.prompt.length).toBeGreaterThan(0);
+    });
+
+    // atypical T3: — more than 2 themeInspirations should only include first two in 'inspired by'
+    it("limits inspirations to first two entries when many provided (T3)", () => {
+      const p = {
+        ...goodParams,
+        themeInspirations: ["a", "b", "c", "d"],
+      } as any;
+      const out = PromptEnhancementService.buildBrandedPrompt(p);
+      expect(out.prompt).toMatch(/inspired by a and b/);
+      expect(out.prompt).not.toMatch(/inspired by a and b and c/);
+    });
+
+    // invalid T2: — missing projectName or projectDescription should not throw but will produce strings; ensure no exception
+    it("does not throw when projectName or projectDescription are missing (T2)", () => {
+      const p1 = { ...goodParams } as any;
+      delete p1.projectName;
+      delete p1.projectDescription;
+      expect(() =>
+        PromptEnhancementService.buildBrandedPrompt(p1)
+      ).not.toThrow();
     });
   });
 
@@ -204,6 +256,86 @@ describe("PromptEnhancementService (partitioned)", () => {
         1
       );
       expect(score).toBeGreaterThanOrEqual(0);
+    });
+
+    // T4: boundary avgSimilarity == 0.5 -> should fall into >0.3 bucket (+5)
+    it("uses the correct similarity bucket at boundary (avgSimilarity == 0.5) (T4)", () => {
+      const theme = { brand_strength: 0, complexity_score: 0 } as any;
+      const ragBoundary = {
+        avgSimilarity: 0.5,
+        similarDescriptions: [],
+      } as any;
+      const score = PromptEnhancementService.scoreRagQuality(
+        theme,
+        ragBoundary,
+        0
+      );
+      // base 50 + 5 (avgSim 0.5 -> >0.3 branch) = 55
+      expect(score).toBe(55);
+    });
+
+    // T4: boundary avgSimilarity == 0.3 -> should get no similarity bonus
+    it("gives no similarity bonus at avgSimilarity == 0.3 (T4)", () => {
+      const theme = { brand_strength: 0, complexity_score: 0 } as any;
+      const ragBoundary = {
+        avgSimilarity: 0.3,
+        similarDescriptions: [],
+      } as any;
+      const score = PromptEnhancementService.scoreRagQuality(
+        theme,
+        ragBoundary,
+        0
+      );
+      // base 50, no sim bonus
+      expect(score).toBe(50);
+    });
+
+    // T4: word count boundaries exactly at 20 and 80 should give wordCount bonus
+    it("gives wordCount bonus at 20 and 80 words boundaries (T4)", () => {
+      const theme = { brand_strength: 0, complexity_score: 0 } as any;
+      const rag = { avgSimilarity: 0 } as any;
+      const score20 = PromptEnhancementService.scoreRagQuality(
+        theme,
+        rag,
+        20 * 5
+      );
+      const score80 = PromptEnhancementService.scoreRagQuality(
+        theme,
+        rag,
+        80 * 5
+      );
+      // both should receive +10
+      expect(score20).toBe(60);
+      expect(score80).toBe(60);
+    });
+
+    // T4: complexity_score == 70 should NOT give complexity bonus; 71 should
+    it("gives complexity bonus only when complexity_score > 70 (T4)", () => {
+      const rag = { avgSimilarity: 0 } as any;
+      const s70 = PromptEnhancementService.scoreRagQuality(
+        { complexity_score: 70 } as any,
+        rag,
+        0
+      );
+      const s71 = PromptEnhancementService.scoreRagQuality(
+        { complexity_score: 71 } as any,
+        rag,
+        0
+      );
+      expect(s70).toBe(50);
+      expect(s71).toBe(55);
+    });
+
+    // T4: ensure upper clamp at 100 for excessive inputs
+    it("clamps the score to 100 when inputs produce >100 (T4)", () => {
+      const themeHuge = { brand_strength: 1000, complexity_score: 1000 } as any;
+      const ragHigh2 = { avgSimilarity: 0.9 } as any;
+      const score = PromptEnhancementService.scoreRagQuality(
+        themeHuge,
+        ragHigh2,
+        1000
+      );
+      expect(score).toBe(100);
     });
   });
 });
