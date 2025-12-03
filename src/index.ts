@@ -2,7 +2,7 @@ import app from "./app";
 import logger from "./config/logger";
 import { StorageService } from "./services/StorageService";
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 8080;
 
 // Initialize services on startup
 async function startServer() {
@@ -11,8 +11,8 @@ async function startServer() {
     await StorageService.initialize();
     logger.info("StorageService initialized successfully");
 
-    app.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
     logger.error("Failed to start server:", error);
