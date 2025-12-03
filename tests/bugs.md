@@ -14,5 +14,11 @@ This document lists issues discovered while auditing and augmenting tests across
   - Issue: `update` initially accepted whitespace-only `id`. The controller was changed to reject whitespace-only ids.
   - Fix: Updated tests to expect 400 for whitespace-only `id`. 
 
+- **EmbeddingService: fallback on empty embedding responses**
+  - Files: `src/services/EmbeddingService.ts`
+  - Issue: `generateQueryEmbedding` and `generateImageEmbedding` previously returned empty arrays when the remote Vertex AI API returned an empty embedding payload. This caused downstream code to see zero-length embeddings.
+  - Fix: Service functions now detect empty embeddings returned by the API and use the deterministic local `generateFallbackEmbedding` instead. 
+
 ---
+
 Generated on: 2025-12-03
