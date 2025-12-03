@@ -4,18 +4,22 @@
  * Functions: `create`, `listByClient`
  *
  * Inputs and partitions:
- * create(req.body.name, req.clientId, ThemeModel.create outcome):
+ * create(req.body.name, req.body.tags, req.body.inspirations, req.clientId, ThemeModel.create outcome):
  * - T1: name missing (undefined / body = {}) -> Invalid (400)
  *     -> test: "should return 400 if name is missing"
  * - T2: name empty string ('') -> Invalid (boundary)
  *     -> test: "should return 400 when name is empty string (boundary)" (added)
  * - T3: name whitespace-only ('   ') -> Invalid (boundary: trimmed to empty)
  *     -> test: "should return 400 when name is whitespace-only (boundary)" (updated)
- * - T4: clientId missing/undefined -> Atypical valid (controller does not validate clientId)
- *     -> test: "should create theme when clientId is missing (atypical valid)" (added)
- * - T5: ThemeModel.create returns { data: null, error } -> Invalid (server error)
+ * - T4: tags missing / not array / empty -> Invalid (400)
+ *     -> tests: "should return 400 if tags are missing", "should return 400 if tags is not array or empty"
+ * - T5: inspirations missing or not array -> Atypical valid (normalized to [])
+ *     -> test: "should normalize inspirations to empty array when missing or not array"
+ * - T6: clientId missing/undefined -> Atypical valid (controller does not validate clientId)
+ *     -> test: "should create theme when clientId is missing (atypical valid)"
+ * - T7: ThemeModel.create returns { data: null, error } -> Invalid (server error)
  *     -> test: "should handle ThemeModel.create error"
- * - T6: ThemeModel.create throws/rejects -> Invalid (runtime)
+ * - T8: ThemeModel.create throws/rejects -> Invalid (runtime)
  *     -> test: "should handle unexpected exception in create()"
  *
  * listByClient(req.clientId, ThemeModel.listByClient outcome):
@@ -44,7 +48,10 @@ describe("ThemeController", () => {
   let res: any;
 
   beforeEach(() => {
-    req = { body: { name: "Test Theme" }, clientId: "mock-client-1" };
+    req = {
+      body: { name: "Test Theme", tags: ["modern"], inspirations: ["Apple"] },
+      clientId: "mock-client-1",
+    };
     res = {};
     jest.clearAllMocks();
     jest.spyOn(logger, "log").mockImplementation();
@@ -80,7 +87,12 @@ describe("ThemeController", () => {
     // Valid input: name present and ThemeModel.create succeeds
     it("should create a theme successfully", async () => {
       (ThemeModel.create as jest.Mock).mockResolvedValue({
-        data: { id: "mock-theme-1", name: "Test Theme" },
+        data: {
+          id: "mock-theme-1",
+          name: "Test Theme",
+          tags: ["modern"],
+          inspirations: ["Apple"],
+        },
         error: null,
       });
 
@@ -97,10 +109,19 @@ describe("ThemeController", () => {
 
     // Atypical valid: clientId missing (controller does not validate clientId)
     it("should create theme when clientId is missing (atypical valid)", async () => {
-      req.body = { name: "Theme No Client" };
+      req.body = {
+        name: "Theme No Client",
+        tags: ["modern"],
+        inspirations: ["Apple"],
+      };
       req.clientId = undefined;
       (ThemeModel.create as jest.Mock).mockResolvedValue({
-        data: { id: "t-noclient", name: "Theme No Client" },
+        data: {
+          id: "t-noclient",
+          name: "Theme No Client",
+          tags: ["modern"],
+          inspirations: ["Apple"],
+        },
         error: null,
       });
 
@@ -114,7 +135,7 @@ describe("ThemeController", () => {
 
     // Invalid input: missing name (undefined)
     it("should return 400 if name is missing", async () => {
-      req.body = {}; // missing name
+      req.body = { tags: ["modern"] }; // missing name
       await ThemeController.create(req, res);
 
       expect(logger.info).toHaveBeenCalled();
@@ -160,7 +181,7 @@ describe("ThemeController", () => {
 
     // Invalid input (boundary): name provided but empty string
     it("should return 400 when name is empty string (boundary)", async () => {
-      req.body = { name: "" };
+      req.body = { name: "", tags: ["modern"] };
 
       await ThemeController.create(req, res);
 
@@ -173,10 +194,8 @@ describe("ThemeController", () => {
 
     // Invalid input (boundary): name is whitespace-only -> after trim becomes empty
     it("should return 400 when name is whitespace-only (boundary)", async () => {
-      req.body = { name: "   " };
-
+      req.body = { name: "   ", tags: ["modern"] };
       await ThemeController.create(req, res);
-
       expect(handleServiceResponse).toHaveBeenCalled();
       const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
         .calls[0];
@@ -184,6 +203,49 @@ describe("ThemeController", () => {
       expect(serviceResponse.statusCode).toBe(400);
       expect(serviceResponse.message).toBe("Missing required fields");
       expect(ThemeModel.create).not.toHaveBeenCalled();
+    });
+
+    // Invalid input: tags missing / empty / not array
+    it("should return 400 if tags are missing", async () => {
+      req.body = { name: "No Tags" };
+      await ThemeController.create(req, res);
+      const [serviceResponse] = (handleServiceResponse as jest.Mock).mock
+        .calls[0];
+      expect(serviceResponse.success).toBe(false);
+      expect(serviceResponse.statusCode).toBe(400);
+    });
+
+    it("should return 400 if tags is not array or empty", async () => {
+      for (const invalid of [
+        { name: "Empty", tags: [] },
+        { name: "NotArray", tags: "modern" },
+      ]) {
+        req.body = invalid as any;
+        await ThemeController.create(req, res);
+        const [serviceResponse] = (
+          handleServiceResponse as jest.Mock
+        ).mock.calls.pop();
+        expect(serviceResponse.success).toBe(false);
+        expect(serviceResponse.statusCode).toBe(400);
+      }
+    });
+
+    // Atypical valid: inspirations missing or not array should normalize to [] and succeed
+    it("should normalize inspirations to empty array when missing or not array", async () => {
+      req.body = {
+        name: "Theme Insp",
+        tags: ["modern"],
+        inspirations: "not-array",
+      } as any;
+      (ThemeModel.create as jest.Mock).mockResolvedValue({
+        data: { id: "insp-1", name: "Theme Insp" },
+        error: null,
+      });
+      await ThemeController.create(req, res);
+      expect(ThemeModel.create).toHaveBeenCalled();
+      const callArg = (ThemeModel.create as jest.Mock).mock.calls[0][0];
+      expect(Array.isArray(callArg.inspirations)).toBe(true);
+      expect(callArg.inspirations).toEqual([]);
     });
   });
 
