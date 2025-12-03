@@ -1,37 +1,42 @@
 /**
  * services/ContentAnalysisService.ts
  *
- * Advanced content analysis including:
- * - Readability scoring (Flesch-Kincaid)
- * - Keyword density analysis
- * - Sentiment analysis
- * - Variant diversity measurement
+ * Marketing-focused content analysis including:
+ * - Marketing readability (power words, CTAs, scannability)
+ * - Marketing tone analysis (urgency, benefits, social proof)
+ * - Keyword density relative to brand
+ * - Semantic diversity using embeddings (not just word overlap)
  *
- * These computations provide deeper insights into generated content quality
- * beyond simple heuristics.
+ * These computations provide actionable insights for marketing content quality.
  */
 
 import logger from "../config/logger";
 import { Theme } from "../types";
+import { EmbeddingService } from "./EmbeddingService";
 
 /**
  * Detailed analysis result for a single piece of content.
  */
 export interface ContentAnalysis {
   readability: {
-    score: number; // 0-100, higher = easier to read
-    grade_level: number; // US grade level
-    level: string; // "easy" | "moderate" | "difficult"
+    score: number; // 0-100, composite marketing readability
+    power_word_count: number;
+    has_cta: boolean;
+    scannability_score: number; // 0-100
+    level: string; // "weak" | "moderate" | "strong"
   };
   keyword_density: {
     brand_keyword_count: number;
     brand_keyword_percentage: number;
     top_keywords: Array<{ word: string; count: number }>;
   };
-  sentiment: {
-    score: number; // -1 to 1, negative to positive
-    label: string; // "negative" | "neutral" | "positive"
-    confidence: number; // 0-1
+  tone: {
+    urgency_score: number; // 0-100
+    benefit_score: number; // 0-100
+    social_proof_score: number; // 0-100
+    emotional_appeal: number; // 0-100
+    overall_persuasion: number; // 0-100 weighted composite
+    label: string; // "weak" | "moderate" | "strong" | "very_strong"
   };
   structure: {
     sentence_count: number;
@@ -49,148 +54,291 @@ export interface DiversityAnalysis {
   diversity_score: number; // 0-100, higher = more diverse
   unique_variant_count: number;
   duplicate_pairs: Array<[number, number]>; // indices of too-similar pairs
+  method: "semantic" | "lexical"; // indicates which method was used
 }
 
-// Sentiment lexicons for basic sentiment analysis
-const POSITIVE_WORDS = new Set([
-  "good",
-  "great",
-  "excellent",
-  "amazing",
-  "wonderful",
-  "fantastic",
-  "outstanding",
-  "brilliant",
-  "superb",
-  "perfect",
-  "love",
-  "best",
-  "happy",
-  "beautiful",
-  "innovative",
-  "exciting",
-  "powerful",
-  "success",
-  "successful",
-  "premium",
-  "quality",
-  "professional",
-  "trusted",
-  "reliable",
-  "efficient",
-  "effective",
-  "impressive",
-  "remarkable",
-  "exceptional",
-  "superior",
+// ─────────────────────────────────────────────────────────────────────────────
+// Marketing lexicons - research-backed word lists for marketing effectiveness
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Power words that drive action in marketing copy.
+ * Based on copywriting research (e.g., David Ogilvy, conversion optimization studies)
+ */
+const POWER_WORDS = new Set([
+  // Urgency/Scarcity
+  "now", "today", "instant", "immediately", "hurry", "limited", "exclusive",
+  "deadline", "last", "final", "ending", "expires", "quick", "fast",
+  // Value/Benefit
+  "free", "bonus", "save", "discount", "deal", "value", "bargain", "affordable",
+  "guaranteed", "proven", "results", "transform", "boost", "maximize", "unlock",
+  // Trust/Authority
+  "official", "certified", "expert", "professional", "trusted", "secure",
+  "verified", "authentic", "endorsed", "recommended", "award", "leading",
+  // Emotion
+  "amazing", "incredible", "powerful", "revolutionary", "breakthrough",
+  "discover", "secret", "revealed", "ultimate", "essential", "must-have",
+  // Action
+  "get", "start", "join", "try", "claim", "grab", "download", "access",
+  "subscribe", "register", "book", "reserve", "order", "buy", "shop",
 ]);
 
-const NEGATIVE_WORDS = new Set([
-  "bad",
-  "poor",
-  "terrible",
-  "awful",
-  "horrible",
-  "worst",
-  "hate",
-  "disappointing",
-  "failed",
-  "failure",
-  "problem",
-  "issue",
-  "difficult",
-  "complicated",
-  "confusing",
-  "expensive",
-  "slow",
-  "broken",
-  "error",
-  "mistake",
-  "wrong",
-  "weak",
-  "limited",
-  "frustrating",
-  "annoying",
+/**
+ * Call-to-action phrases and patterns
+ */
+const CTA_PATTERNS = [
+  /\b(get|grab|claim|download|access|start|join|try|subscribe|sign up|register|book|reserve|order|buy|shop|learn more|find out|discover|see how|click|tap)\b/gi,
+  /\b(don't miss|act now|limited time|while supplies last|offer ends|today only)\b/gi,
+  /\b(free trial|no obligation|cancel anytime|money back|risk.?free)\b/gi,
+];
+
+/**
+ * Urgency indicators for marketing copy
+ */
+const URGENCY_WORDS = new Set([
+  "now", "today", "tonight", "immediately", "instant", "hurry", "rush",
+  "limited", "exclusive", "only", "last", "final", "ending", "expires",
+  "deadline", "countdown", "running out", "almost gone", "few left",
+  "act fast", "don't wait", "before", "soon", "quick",
+]);
+
+/**
+ * Benefit-focused language
+ */
+const BENEFIT_WORDS = new Set([
+  "you", "your", "you'll", "you're", "yours",
+  "save", "gain", "get", "receive", "enjoy", "discover", "achieve", "unlock",
+  "improve", "enhance", "boost", "increase", "maximize", "optimize",
+  "transform", "revolutionize", "simplify", "streamline",
+  "benefit", "advantage", "value", "results", "success", "solution",
+  "effortless", "easy", "simple", "convenient", "comfortable",
+]);
+
+/**
+ * Social proof indicators
+ */
+const SOCIAL_PROOF_WORDS = new Set([
+  "trusted", "proven", "verified", "certified", "endorsed", "recommended",
+  "popular", "bestselling", "top-rated", "award-winning", "leading",
+  "thousands", "millions", "customers", "users", "clients", "members",
+  "testimonial", "review", "rating", "stars", "satisfied",
+  "as seen", "featured", "mentioned", "used by", "chosen by",
+]);
+
+/**
+ * Emotional trigger words
+ */
+const EMOTIONAL_WORDS = new Set([
+  // Positive emotions
+  "love", "happy", "joy", "excited", "thrilled", "delighted", "amazing",
+  "wonderful", "fantastic", "incredible", "awesome", "brilliant",
+  // Desire/aspiration
+  "dream", "imagine", "wish", "desire", "aspire", "inspire", "motivated",
+  // Fear/pain (used ethically to highlight problems solved)
+  "worried", "frustrated", "struggling", "tired", "overwhelmed", "stuck",
+  "missing out", "left behind", "falling behind",
+  // Relief/solution
+  "finally", "relief", "solved", "fixed", "overcome", "conquered",
 ]);
 
 export class ContentAnalysisService {
   /**
-   * Perform comprehensive analysis on a piece of content.
+   * Perform comprehensive marketing-focused analysis on content.
    *
    * @param content - The text content to analyze
    * @param theme - Theme for keyword analysis (brand keywords from tags/inspirations)
-   * @returns ContentAnalysis with readability, keywords, sentiment, and structure
+   * @returns ContentAnalysis with readability, keywords, tone, and structure
    */
   static analyzeContent(content: string, theme: Theme): ContentAnalysis {
     logger.info("ContentAnalysisService: Analyzing content");
 
-    const readability = this.calculateReadability(content);
+    const readability = this.analyzeMarketingReadability(content);
     const keyword_density = this.analyzeKeywordDensity(content, theme);
-    const sentiment = this.analyzeSentiment(content);
+    const tone = this.analyzeMarketingTone(content);
     const structure = this.analyzeStructure(content);
 
-    return { readability, keyword_density, sentiment, structure };
+    return { readability, keyword_density, tone, structure };
   }
 
   /**
-   * Calculate Flesch-Kincaid readability metrics.
+   * Analyze marketing-specific readability metrics.
    *
-   * Flesch Reading Ease formula:
-   * 206.835 - 1.015 × (words/sentences) - 84.6 × (syllables/words)
-   *
-   * Flesch-Kincaid Grade Level:
-   * 0.39 × (words/sentences) + 11.8 × (syllables/words) - 15.59
+   * Unlike Flesch-Kincaid (designed for textbooks), this measures:
+   * - Power word density (words that drive action)
+   * - CTA presence and strength
+   * - Scannability (short sentences, clear structure)
    *
    * @param text - Text to analyze
-   * @returns Readability scores and classification
+   * @returns Marketing readability scores
    */
-  static calculateReadability(text: string): ContentAnalysis["readability"] {
-    logger.info("ContentAnalysisService: Calculating readability");
+  static analyzeMarketingReadability(
+    text: string
+  ): ContentAnalysis["readability"] {
+    logger.info("ContentAnalysisService: Analyzing marketing readability");
 
-    const sentences = this.countSentences(text);
     const words = this.getWords(text);
     const wordCount = words.length;
-    const syllableCount = words.reduce(
-      (sum, word) => sum + this.countSyllables(word),
-      0
-    );
+    const lowerText = text.toLowerCase();
 
-    // Avoid division by zero
-    if (wordCount === 0 || sentences === 0) {
-      return { score: 0, grade_level: 0, level: "unknown" };
+    // Count power words
+    let powerWordCount = 0;
+    for (const word of words) {
+      if (POWER_WORDS.has(word.toLowerCase())) {
+        powerWordCount++;
+      }
     }
 
-    const avgWordsPerSentence = wordCount / sentences;
-    const avgSyllablesPerWord = syllableCount / wordCount;
+    // Check for CTA patterns
+    let ctaMatches = 0;
+    for (const pattern of CTA_PATTERNS) {
+      const matches = lowerText.match(pattern);
+      if (matches) {
+        ctaMatches += matches.length;
+      }
+    }
+    const hasCta = ctaMatches > 0;
 
-    // Flesch Reading Ease (0-100, higher = easier)
-    const fleschScore =
-      206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord;
-    const normalizedScore = Math.max(0, Math.min(100, Math.round(fleschScore)));
+    // Calculate scannability (prefer shorter sentences, clear structure)
+    const sentences = this.countSentences(text);
+    const avgSentenceLength = sentences > 0 ? wordCount / sentences : wordCount;
 
-    // Flesch-Kincaid Grade Level
-    const gradeLevel =
-      0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59;
-    const normalizedGrade = Math.max(0, Math.round(gradeLevel * 10) / 10);
+    // Optimal marketing sentence length is 15-20 words
+    // Penalize very long sentences (>25) and very short (<5)
+    let scannabilityScore = 100;
+    if (avgSentenceLength > 25) {
+      scannabilityScore -= (avgSentenceLength - 25) * 3;
+    } else if (avgSentenceLength < 8) {
+      scannabilityScore -= (8 - avgSentenceLength) * 5;
+    }
 
-    // Classify readability level
+    // Bonus for paragraph breaks (indicates visual structure)
+    const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    if (paragraphs.length > 1) {
+      scannabilityScore += Math.min(10, paragraphs.length * 2);
+    }
+
+    scannabilityScore = Math.max(0, Math.min(100, Math.round(scannabilityScore)));
+
+    // Composite readability score
+    // Weight: 40% power words, 30% CTA presence, 30% scannability
+    const powerWordScore = wordCount > 0
+      ? Math.min(100, (powerWordCount / wordCount) * 500)
+      : 0;
+    const ctaScore = hasCta ? 100 : 0;
+
+    const compositeScore = Math.round(
+      powerWordScore * 0.4 + ctaScore * 0.3 + scannabilityScore * 0.3
+    );
+
+    // Classify level
     let level: string;
-    if (normalizedScore >= 70) {
-      level = "easy";
-    } else if (normalizedScore >= 50) {
+    if (compositeScore >= 70) {
+      level = "strong";
+    } else if (compositeScore >= 40) {
       level = "moderate";
     } else {
-      level = "difficult";
+      level = "weak";
     }
 
     logger.info(
-      `ContentAnalysisService: Readability - score: ${normalizedScore}, grade: ${normalizedGrade}`
+      `ContentAnalysisService: Marketing readability - score: ${compositeScore}, power words: ${powerWordCount}, has CTA: ${hasCta}`
     );
 
     return {
-      score: normalizedScore,
-      grade_level: normalizedGrade,
+      score: compositeScore,
+      power_word_count: powerWordCount,
+      has_cta: hasCta,
+      scannability_score: scannabilityScore,
       level,
+    };
+  }
+
+  /**
+   * Analyze marketing tone for persuasion effectiveness.
+   *
+   * Measures key persuasion factors:
+   * - Urgency: Creates time pressure
+   * - Benefits: Focuses on customer value (not features)
+   * - Social proof: Leverages trust signals
+   * - Emotional appeal: Connects emotionally
+   *
+   * @param text - Text to analyze
+   * @returns Marketing tone scores
+   */
+  static analyzeMarketingTone(text: string): ContentAnalysis["tone"] {
+    logger.info("ContentAnalysisService: Analyzing marketing tone");
+
+    const words = this.getWords(text).map((w) => w.toLowerCase());
+    const wordCount = words.length;
+
+    if (wordCount === 0) {
+      return {
+        urgency_score: 0,
+        benefit_score: 0,
+        social_proof_score: 0,
+        emotional_appeal: 0,
+        overall_persuasion: 0,
+        label: "weak",
+      };
+    }
+
+    // Count matches for each category
+    let urgencyCount = 0;
+    let benefitCount = 0;
+    let socialProofCount = 0;
+    let emotionalCount = 0;
+
+    for (const word of words) {
+      if (URGENCY_WORDS.has(word)) urgencyCount++;
+      if (BENEFIT_WORDS.has(word)) benefitCount++;
+      if (SOCIAL_PROOF_WORDS.has(word)) socialProofCount++;
+      if (EMOTIONAL_WORDS.has(word)) emotionalCount++;
+    }
+
+    // Convert to scores (0-100)
+    // Optimal density varies by category - these thresholds are based on
+    // copywriting best practices (3-5% for urgency, 5-8% for benefits)
+    const urgencyScore = Math.min(100, (urgencyCount / wordCount) * 2000);
+    const benefitScore = Math.min(100, (benefitCount / wordCount) * 1250);
+    const socialProofScore = Math.min(100, (socialProofCount / wordCount) * 2500);
+    const emotionalAppeal = Math.min(100, (emotionalCount / wordCount) * 1500);
+
+    // Weighted composite - benefits are most important for marketing
+    // Weights based on conversion optimization research:
+    // - Benefits (35%): Most predictive of conversion
+    // - Urgency (25%): Drives action but overuse is spammy
+    // - Emotional (25%): Creates connection and memorability
+    // - Social proof (15%): Important but often external (reviews, etc.)
+    const overallPersuasion = Math.round(
+      benefitScore * 0.35 +
+      urgencyScore * 0.25 +
+      emotionalAppeal * 0.25 +
+      socialProofScore * 0.15
+    );
+
+    // Classify persuasion strength
+    let label: string;
+    if (overallPersuasion >= 70) {
+      label = "very_strong";
+    } else if (overallPersuasion >= 50) {
+      label = "strong";
+    } else if (overallPersuasion >= 30) {
+      label = "moderate";
+    } else {
+      label = "weak";
+    }
+
+    logger.info(
+      `ContentAnalysisService: Marketing tone - persuasion: ${overallPersuasion}, label: ${label}`
+    );
+
+    return {
+      urgency_score: Math.round(urgencyScore),
+      benefit_score: Math.round(benefitScore),
+      social_proof_score: Math.round(socialProofScore),
+      emotional_appeal: Math.round(emotionalAppeal),
+      overall_persuasion: overallPersuasion,
+      label,
     };
   }
 
@@ -259,60 +407,6 @@ export class ContentAnalysisService {
   }
 
   /**
-   * Perform lexicon-based sentiment analysis.
-   *
-   * @param text - Text to analyze
-   * @returns Sentiment score, label, and confidence
-   */
-  static analyzeSentiment(text: string): ContentAnalysis["sentiment"] {
-    logger.info("ContentAnalysisService: Analyzing sentiment");
-
-    const words = this.getWords(text).map((w) => w.toLowerCase());
-    let positiveCount = 0;
-    let negativeCount = 0;
-
-    for (const word of words) {
-      if (POSITIVE_WORDS.has(word)) positiveCount++;
-      if (NEGATIVE_WORDS.has(word)) negativeCount++;
-    }
-
-    const totalSentimentWords = positiveCount + negativeCount;
-    const wordCount = words.length;
-
-    // Calculate score (-1 to 1)
-    let score = 0;
-    if (totalSentimentWords > 0) {
-      score = (positiveCount - negativeCount) / totalSentimentWords;
-    }
-
-    // Determine label
-    let label: string;
-    if (score > 0.2) {
-      label = "positive";
-    } else if (score < -0.2) {
-      label = "negative";
-    } else {
-      label = "neutral";
-    }
-
-    // Confidence based on sentiment word coverage
-    const confidence =
-      wordCount > 0
-        ? Math.min(1, (totalSentimentWords / wordCount) * 5)
-        : 0;
-
-    logger.info(
-      `ContentAnalysisService: Sentiment - ${label} (score: ${score.toFixed(2)})`
-    );
-
-    return {
-      score: Math.round(score * 100) / 100,
-      label,
-      confidence: Math.round(confidence * 100) / 100,
-    };
-  }
-
-  /**
    * Analyze text structure metrics.
    */
   static analyzeStructure(text: string): ContentAnalysis["structure"] {
@@ -330,19 +424,22 @@ export class ContentAnalysisService {
   }
 
   /**
-   * Analyze diversity between multiple content variants.
-   * Uses Jaccard similarity on word sets to detect duplicates.
+   * Analyze semantic diversity between content variants using embeddings.
+   *
+   * Unlike Jaccard (word overlap), this measures actual semantic similarity
+   * using vector embeddings. Two variants can use completely different words
+   * but still be semantically similar (and vice versa).
    *
    * @param variants - Array of content strings
-   * @param similarityThreshold - Threshold above which variants are considered duplicates (default 0.7)
-   * @returns DiversityAnalysis with similarity metrics
+   * @param similarityThreshold - Threshold above which variants are duplicates (default 0.85)
+   * @returns DiversityAnalysis with semantic similarity metrics
    */
-  static analyzeDiversity(
+  static async analyzeDiversitySemantic(
     variants: string[],
-    similarityThreshold = 0.7
-  ): DiversityAnalysis {
+    similarityThreshold = 0.85
+  ): Promise<DiversityAnalysis> {
     logger.info(
-      `ContentAnalysisService: Analyzing diversity of ${variants.length} variants`
+      `ContentAnalysisService: Analyzing semantic diversity of ${variants.length} variants`
     );
 
     if (variants.length < 2) {
@@ -351,6 +448,90 @@ export class ContentAnalysisService {
         diversity_score: 100,
         unique_variant_count: variants.length,
         duplicate_pairs: [],
+        method: "semantic",
+      };
+    }
+
+    try {
+      // Generate embeddings for all variants
+      const embeddings = await Promise.all(
+        variants.map((v) => EmbeddingService.generateDocumentEmbedding(v))
+      );
+
+      const similarities: number[] = [];
+      const duplicatePairs: Array<[number, number]> = [];
+
+      // Calculate pairwise cosine similarity
+      for (let i = 0; i < embeddings.length; i++) {
+        for (let j = i + 1; j < embeddings.length; j++) {
+          const similarity = EmbeddingService.cosineSimilarity(
+            embeddings[i],
+            embeddings[j]
+          );
+          similarities.push(similarity);
+
+          if (similarity >= similarityThreshold) {
+            duplicatePairs.push([i, j]);
+          }
+        }
+      }
+
+      const avgSimilarity =
+        similarities.length > 0
+          ? similarities.reduce((a, b) => a + b, 0) / similarities.length
+          : 0;
+
+      // Diversity score: inverse of similarity (0-100)
+      const diversityScore = Math.round((1 - avgSimilarity) * 100);
+
+      // Count unique variants (not in any duplicate pair)
+      const duplicateIndices = new Set(duplicatePairs.flat());
+      const uniqueCount = variants.length - duplicateIndices.size;
+
+      logger.info(
+        `ContentAnalysisService: Semantic diversity score: ${diversityScore}, duplicates: ${duplicatePairs.length}`
+      );
+
+      return {
+        avg_pairwise_similarity: Math.round(avgSimilarity * 100) / 100,
+        diversity_score: diversityScore,
+        unique_variant_count: uniqueCount,
+        duplicate_pairs: duplicatePairs,
+        method: "semantic",
+      };
+    } catch (error) {
+      logger.error(
+        "ContentAnalysisService: Semantic diversity failed, falling back to lexical",
+        error
+      );
+      // Fall back to lexical analysis if embedding fails
+      return this.analyzeDiversity(variants, similarityThreshold - 0.15);
+    }
+  }
+
+  /**
+   * Analyze diversity using lexical (word overlap) method.
+   * Used as fallback when semantic analysis is unavailable.
+   *
+   * @param variants - Array of content strings
+   * @param similarityThreshold - Threshold above which variants are duplicates (default 0.7)
+   * @returns DiversityAnalysis with Jaccard similarity metrics
+   */
+  static analyzeDiversity(
+    variants: string[],
+    similarityThreshold = 0.7
+  ): DiversityAnalysis {
+    logger.info(
+      `ContentAnalysisService: Analyzing lexical diversity of ${variants.length} variants`
+    );
+
+    if (variants.length < 2) {
+      return {
+        avg_pairwise_similarity: 0,
+        diversity_score: 100,
+        unique_variant_count: variants.length,
+        duplicate_pairs: [],
+        method: "lexical",
       };
     }
 
@@ -387,7 +568,7 @@ export class ContentAnalysisService {
     const uniqueCount = variants.length - duplicateIndices.size;
 
     logger.info(
-      `ContentAnalysisService: Diversity score: ${diversityScore}, duplicates: ${duplicatePairs.length}`
+      `ContentAnalysisService: Lexical diversity score: ${diversityScore}, duplicates: ${duplicatePairs.length}`
     );
 
     return {
@@ -395,37 +576,63 @@ export class ContentAnalysisService {
       diversity_score: diversityScore,
       unique_variant_count: uniqueCount,
       duplicate_pairs: duplicatePairs,
+      method: "lexical",
     };
   }
 
   /**
-   * Rank variants by multiple quality factors.
-   * Returns indices sorted by composite score (best first).
+   * Rank variants by marketing effectiveness.
+   *
+   * Weight rationale (based on conversion optimization research):
+   * - Base quality (25%): Technical correctness and coherence
+   * - Marketing readability (25%): Power words, CTAs, scannability
+   * - Marketing tone (30%): Persuasion effectiveness (benefits, urgency, emotion)
+   * - Brand keywords (10%): On-brand messaging
+   * - Structure (10%): Appropriate length and formatting
    *
    * @param variants - Array of content strings
    * @param analyses - Corresponding ContentAnalysis for each variant
    * @param qualityScores - Base quality scores from QualityScoringService
+   * @param weights - Optional custom weights for ranking factors
    * @returns Sorted indices and composite scores
    */
   static rankVariants(
     variants: string[],
     analyses: ContentAnalysis[],
-    qualityScores: number[]
-  ): Array<{ index: number; compositeScore: number; factors: Record<string, number> }> {
+    qualityScores: number[],
+    weights?: Partial<RankingWeights>
+  ): Array<{
+    index: number;
+    compositeScore: number;
+    factors: Record<string, number>;
+  }> {
     logger.info("ContentAnalysisService: Ranking variants");
+
+    // Default weights with documented rationale
+    const defaultWeights: RankingWeights = {
+      base_quality: 0.25, // Technical correctness
+      marketing_readability: 0.25, // Power words, CTAs, scannability
+      marketing_tone: 0.30, // Persuasion (most predictive of conversion)
+      brand_keywords: 0.10, // On-brand messaging
+      structure: 0.10, // Length and formatting
+    };
+
+    const w = { ...defaultWeights, ...weights };
 
     const ranked = variants.map((_, index) => {
       const analysis = analyses[index];
       const baseQuality = qualityScores[index];
 
-      // Weight factors for composite score
+      // Calculate factor contributions (each normalized to 0-100)
       const factors = {
-        base_quality: baseQuality * 0.3,
-        readability: analysis.readability.score * 0.2,
-        sentiment_positive: (analysis.sentiment.score + 1) * 50 * 0.15, // Normalize to 0-100
-        keyword_density: Math.min(analysis.keyword_density.brand_keyword_percentage * 10, 100) * 0.15,
-        structure: Math.min(analysis.structure.word_count / 2, 100) * 0.1, // Prefer longer content up to 200 words
-        sentence_variety: Math.min(analysis.structure.sentence_count * 10, 100) * 0.1,
+        base_quality: baseQuality * w.base_quality,
+        marketing_readability: analysis.readability.score * w.marketing_readability,
+        marketing_tone: analysis.tone.overall_persuasion * w.marketing_tone,
+        brand_keywords:
+          Math.min(analysis.keyword_density.brand_keyword_percentage * 10, 100) *
+          w.brand_keywords,
+        structure:
+          Math.min(analysis.structure.word_count / 2, 100) * w.structure,
       };
 
       const compositeScore = Math.round(
@@ -458,23 +665,6 @@ export class ContentAnalysisService {
     return matches ? matches.length : 1;
   }
 
-  /**
-   * Estimate syllable count using a simple heuristic.
-   * Counts vowel groups, adjusting for silent e and common patterns.
-   */
-  private static countSyllables(word: string): number {
-    word = word.toLowerCase();
-    if (word.length <= 3) return 1;
-
-    // Remove silent e at end
-    word = word.replace(/(?:[^laeiouy]e)$/, "");
-    word = word.replace(/^y/, "");
-
-    // Count vowel groups
-    const vowelGroups = word.match(/[aeiouy]+/g);
-    return vowelGroups ? vowelGroups.length : 1;
-  }
-
   private static jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
     const intersection = new Set([...setA].filter((x) => setB.has(x)));
     const union = new Set([...setA, ...setB]);
@@ -500,4 +690,16 @@ export class ContentAnalysisService {
     ]);
     return stopWords.has(word);
   }
+}
+
+/**
+ * Configurable weights for variant ranking.
+ * All weights should sum to 1.0.
+ */
+export interface RankingWeights {
+  base_quality: number;
+  marketing_readability: number;
+  marketing_tone: number;
+  brand_keywords: number;
+  structure: number;
 }

@@ -179,11 +179,11 @@ export class ContentGenerationPipeline {
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Stage 7: Diversity analysis (detect duplicates, measure variety)
+    // Stage 7: Semantic diversity analysis (detect duplicates using embeddings)
     // ─────────────────────────────────────────────────────────────────────────
-    logger.info("ContentGenerationPipeline: Stage 7 - Diversity analysis");
+    logger.info("ContentGenerationPipeline: Stage 7 - Semantic diversity analysis");
 
-    const diversity = ContentAnalysisService.analyzeDiversity(rawVariants);
+    const diversity = await ContentAnalysisService.analyzeDiversitySemantic(rawVariants);
 
     logger.info(
       `ContentGenerationPipeline: Diversity score: ${diversity.diversity_score}, duplicates: ${diversity.duplicate_pairs.length}`

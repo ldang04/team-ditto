@@ -40,6 +40,7 @@ import { RAGService, RAGContext } from "../src/services/RAGService";
 import { PromptEnhancementService } from "../src/services/PromptEnhancementService";
 import { TextGenerationService } from "../src/services/TextGenerationService";
 import { QualityScoringService } from "../src/services/QualityScoringService";
+import { ContentAnalysisService } from "../src/services/ContentAnalysisService";
 import logger from "../src/config/logger";
 import { Project, Theme, ThemeAnalysis } from "../src/types";
 
@@ -53,6 +54,7 @@ jest.mock("../src/services/RAGService");
 jest.mock("../src/services/PromptEnhancementService");
 jest.mock("../src/services/TextGenerationService");
 jest.mock("../src/services/QualityScoringService");
+jest.mock("../src/services/ContentAnalysisService");
 
 describe("ContentGenerationPipeline", () => {
   // Test fixtures
@@ -103,6 +105,22 @@ describe("ContentGenerationPipeline", () => {
     "Generated variant 2 featuring modern design principles and clean aesthetics.",
   ];
 
+  // Mock content analysis with new marketing structure
+  const mockContentAnalysis = {
+    readability: { score: 70, power_word_count: 3, has_cta: true, scannability_score: 80, level: "moderate" },
+    tone: { urgency_score: 50, benefit_score: 60, social_proof_score: 30, emotional_appeal: 40, overall_persuasion: 50, label: "strong" },
+    keyword_density: { brand_keyword_count: 2, brand_keyword_percentage: 4, top_keywords: [] },
+    structure: { sentence_count: 3, word_count: 50, avg_sentence_length: 17, paragraph_count: 1 },
+  };
+
+  const mockDiversityAnalysis = {
+    avg_pairwise_similarity: 0.3,
+    diversity_score: 70,
+    unique_variant_count: 2,
+    duplicate_pairs: [],
+    method: "semantic" as const,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -119,6 +137,13 @@ describe("ContentGenerationPipeline", () => {
       mockGeneratedVariants
     );
     (QualityScoringService.scoreTextQuality as jest.Mock).mockReturnValue(80);
+    // Mock new ContentAnalysisService methods
+    (ContentAnalysisService.analyzeContent as jest.Mock).mockReturnValue(mockContentAnalysis);
+    (ContentAnalysisService.analyzeDiversitySemantic as jest.Mock).mockResolvedValue(mockDiversityAnalysis);
+    (ContentAnalysisService.rankVariants as jest.Mock).mockReturnValue([
+      { index: 0, compositeScore: 75, factors: {} },
+      { index: 1, compositeScore: 70, factors: {} },
+    ]);
   });
 
   describe("execute - valid inputs (P1/T1/R1/G1)", () => {
@@ -315,6 +340,10 @@ describe("ContentGenerationPipeline", () => {
     it("handles single variant generation (G2)", async () => {
       (TextGenerationService.generateContent as jest.Mock).mockResolvedValue([
         "Single variant content",
+      ]);
+      // Mock rankVariants to return only 1 variant for this test
+      (ContentAnalysisService.rankVariants as jest.Mock).mockReturnValue([
+        { index: 0, compositeScore: 75, factors: {} },
       ]);
 
       const result = await ContentGenerationPipeline.execute({

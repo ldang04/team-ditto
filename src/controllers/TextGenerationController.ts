@@ -137,16 +137,17 @@ export const TextGenerationController = {
           content_analysis: savedVariants.map((v) => ({
             content_id: v.content_id,
             readability: v.analysis?.readability,
-            sentiment: v.analysis?.sentiment,
+            tone: v.analysis?.tone,
             keyword_density: v.analysis?.keyword_density,
             structure: v.analysis?.structure,
           })),
-          // Diversity metrics
+          // Diversity metrics (semantic = embedding-based, lexical = word overlap)
           diversity: {
             score: metadata.diversity.diversity_score,
             avg_pairwise_similarity: metadata.diversity.avg_pairwise_similarity,
             unique_variants: metadata.diversity.unique_variant_count,
             duplicate_pairs: metadata.diversity.duplicate_pairs,
+            method: metadata.diversity.method,
           },
           // Theme analysis summary
           theme_analysis: {

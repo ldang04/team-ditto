@@ -228,11 +228,16 @@ describe("TextGenerationController.saveGeneratedContents - persistence cases", (
     jest.clearAllMocks();
   });
 
-  // Helper to create mock VariantWithScore
+  // Helper to create mock VariantWithScore with new marketing analysis structure
   const makeVariant = (content: string, rank = 1) => ({
     content,
     qualityScore: 80,
-    analysis: { readability: { score: 70, grade_level: 8, level: "moderate" } },
+    analysis: {
+      readability: { score: 70, power_word_count: 3, has_cta: true, scannability_score: 80, level: "moderate" },
+      tone: { urgency_score: 50, benefit_score: 60, social_proof_score: 30, emotional_appeal: 40, overall_persuasion: 50, label: "strong" },
+      keyword_density: { brand_keyword_count: 2, brand_keyword_percentage: 4, top_keywords: [] },
+      structure: { sentence_count: 3, word_count: 50, avg_sentence_length: 17, paragraph_count: 1 },
+    },
     rank,
     compositeScore: 75,
   });
