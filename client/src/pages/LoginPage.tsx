@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [clientName, setClientName] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState('');
   const { setApiKey: setAuthApiKey } = useAuth();
   const navigate = useNavigate();
@@ -32,17 +33,35 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsValidating(true);
 
     if (!apiKey.trim()) {
       setError('Please enter an API key');
+      setIsValidating(false);
       return;
     }
 
-    setAuthApiKey(apiKey);
-    navigate('/');
+    try {
+      // Validate the API key before allowing login
+      const isValid = await apiClient.validateApiKey(apiKey.trim());
+      
+      if (isValid) {
+        // Key is valid, set it and navigate
+        setAuthApiKey(apiKey.trim());
+        navigate('/');
+      } else {
+        // Key is invalid
+        setError('Invalid API key. Please check your key and try again.');
+      }
+    } catch (err: any) {
+      // Handle network errors or other issues
+      setError(err.response?.data?.message || 'Failed to validate API key. Please try again.');
+    } finally {
+      setIsValidating(false);
+    }
   };
 
   return (
@@ -122,8 +141,19 @@ export default function LoginPage() {
                     required
                   />
                 </div>
-                <button type="submit" className="btn btn-primary w-full">
-                  Login
+                <button
+                  type="submit"
+                  disabled={isValidating}
+                  className="btn btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  {isValidating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    'Login'
+                  )}
                 </button>
               </form>
             </div>

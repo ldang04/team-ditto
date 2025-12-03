@@ -10,9 +10,23 @@ import ImageGenerationPage from './pages/ImageGenerationPage';
 import ValidationPage from './pages/ValidationPage';
 import ContentLibraryPage from './pages/ContentLibraryPage';
 import Layout from './components/Layout';
+import { Loader2 } from 'lucide-react';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isValidating } = useAuth();
+  
+  // Show loading state while validating stored API key
+  if (isValidating) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
+          <p className="text-gray-600">Validating authentication...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 

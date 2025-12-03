@@ -6,6 +6,7 @@ interface AuthContextType {
   apiKey: string | null;
   setApiKey: (key: string) => void;
   clearAuth: () => void;
+  isValidating: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -13,13 +14,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
 
   useEffect(() => {
-    const storedKey = apiClient.getApiKey();
-    if (storedKey) {
-      setApiKeyState(storedKey);
-      setIsAuthenticated(true);
-    }
+    const validateStoredKey = async () => {
+      const storedKey = apiClient.getApiKey();
+      if (storedKey) {
+        // Validate the stored key before setting as authenticated
+        const isValid = await apiClient.validateApiKey(storedKey);
+        if (isValid) {
+          setApiKeyState(storedKey);
+          setIsAuthenticated(true);
+        } else {
+          // Key is invalid, clear it
+          apiClient.clearApiKey();
+        }
+      }
+      setIsValidating(false);
+    };
+
+    validateStoredKey();
   }, []);
 
   const setApiKey = (key: string) => {
@@ -35,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, apiKey, setApiKey, clearAuth }}>
+    <AuthContext.Provider value={{ isAuthenticated, apiKey, setApiKey, clearAuth, isValidating }}>
       {children}
     </AuthContext.Provider>
   );
