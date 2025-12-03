@@ -33,7 +33,7 @@ export const ThemeController = {
       const { name } = req.body;
       const client_id = req.clientId;
 
-      if (!name) {
+      if (!name || String(name).trim().length === 0) {
         serviceResponse = ServiceResponse.failure(
           null,
           "Missing required fields",

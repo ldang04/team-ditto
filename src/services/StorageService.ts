@@ -20,7 +20,8 @@ export class StorageService {
   static async initialize(): Promise<void> {
     try {
       // Check if bucket exists
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      const { data: buckets, error: listError } =
+        await supabase.storage.listBuckets();
 
       if (listError) {
         logger.error("StorageService: Error listing buckets:", listError);
@@ -39,14 +40,21 @@ export class StorageService {
           {
             public: true, // Images are public for content generation use
             fileSizeLimit: this.MAX_FILE_SIZE,
-            allowedMimeTypes: ["image/png", "image/jpeg", "image/jpg", "image/webp"],
+            allowedMimeTypes: [
+              "image/png",
+              "image/jpeg",
+              "image/jpg",
+              "image/webp",
+            ],
           }
         );
 
         if (createError) {
           logger.error("StorageService: Error creating bucket:", createError);
         } else {
-          logger.info(`StorageService: Bucket "${this.BUCKET_NAME}" created successfully`);
+          logger.info(
+            `StorageService: Bucket "${this.BUCKET_NAME}" created successfully`
+          );
         }
       } else {
         logger.info(
@@ -73,9 +81,7 @@ export class StorageService {
     contentId: string
   ): Promise<string> {
     try {
-      logger.info(
-        `StorageService: Uploading image for content ${contentId}`
-      );
+      logger.info(`StorageService: Uploading image for content ${contentId}`);
 
       // Convert base64 to buffer
       const buffer = Buffer.from(imageData, "base64");
@@ -93,7 +99,7 @@ export class StorageService {
       const fileName = `${projectId}/${contentId}_${randomSuffix}.${fileExtension}`;
 
       // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .upload(fileName, buffer, {
           contentType: mimeType,
@@ -135,14 +141,10 @@ export class StorageService {
     projectId: string,
     contentIds: string[]
   ): Promise<string[]> {
-    logger.info(
-      `StorageService: Uploading ${images.length} images in batch`
-    );
+    logger.info(`StorageService: Uploading ${images.length} images in batch`);
 
     if (images.length !== contentIds.length) {
-      throw new Error(
-        "Number of images must match number of content IDs"
-      );
+      throw new Error("Number of images must match number of content IDs");
     }
 
     const uploadPromises = images.map((image, index) =>
@@ -218,9 +220,7 @@ export class StorageService {
     try {
       // Supabase storage URLs follow pattern:
       // https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
-      const match = url.match(
-        /\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/
-      );
+      const match = url.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/);
       return match ? match[1] : null;
     } catch (error) {
       logger.error("StorageService: Error extracting file path:", error);
@@ -279,4 +279,3 @@ export class StorageService {
     }
   }
 }
-
