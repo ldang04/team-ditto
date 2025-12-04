@@ -37,15 +37,27 @@ export const ValidationController = {
   async validate(req: Request, res: Response) {
     try {
       logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
-      const { content_id, content, project_id, media_type } = req.body;
+      const { content_id, content, project_id, media_type, image_base64 } = req.body;
 
       let serviceResponse;
 
-      // Require either a content_id OR both content + project_id for ad-hoc text.
-      if (!content_id && (!content || !project_id)) {
+      // Require either:
+      // - content_id (for stored content)
+      // - content + project_id (for ad-hoc text)
+      // - image_base64 + project_id (for ad-hoc image)
+      if (!content_id && !image_base64 && (!content || !project_id)) {
         serviceResponse = ServiceResponse.failure(
           null,
-          "Must provide either content_id OR (content + project_id)",
+          "Must provide either content_id, (content + project_id), or (image_base64 + project_id)",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
+      if (image_base64 && !project_id) {
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "project_id is required for image validation",
           StatusCodes.BAD_REQUEST
         );
         return handleServiceResponse(serviceResponse, res);
@@ -57,7 +69,8 @@ export const ValidationController = {
           content_id,
           content,
           project_id,
-          media_type
+          media_type,
+          image_base64
         );
 
       //Get project and theme, if not exist, throw an error
@@ -75,11 +88,14 @@ export const ValidationController = {
       }
 
       // Compare the content embedding against concise brand reference
+      // Use multimodal embeddings for image_base64 to match the 1408-dim image space
+      const useMultimodal = !!image_base64;
       const brandConsistencyScore =
         await ValidationController.calculateBrandConsistency(
           contentEmbedding,
           projectThemeData.project,
-          projectThemeData.theme
+          projectThemeData.theme,
+          useMultimodal
         );
 
       const qualityScore =
@@ -132,13 +148,15 @@ export const ValidationController = {
    * @param content - optional raw content string (used when no content_id)
    * @param project_id - optional project id (used when no content_id)
    * @param media_type - optional media type hint ("text" | "image")
+   * @param image_base64 - optional base64 image for ad-hoc image validation
    * @returns An object containing { projectId, textContent, contentEmbedding, actualMediaType }
    */
   async getContentData(
     content_id: string | undefined,
     content: string | undefined,
     project_id: string | undefined,
-    media_type: string | undefined
+    media_type: string | undefined,
+    image_base64: string | undefined
   ) {
     logger.info(`ValidationController: get content data`);
 
@@ -147,7 +165,17 @@ export const ValidationController = {
     let contentEmbedding: number[];
     let actualMediaType: string = media_type || "text";
 
-    if (content_id) {
+    if (image_base64) {
+      // Ad-hoc image validation using multimodal embeddings
+      logger.info("ValidationController: Processing ad-hoc image validation");
+      projectId = project_id!;
+      actualMediaType = "image";
+      textContent = "[Image content]"; // Placeholder for insights generation
+
+      // Generate image embedding using multimodal model (1408 dims)
+      // This will be compared against brand text embeddings in the same space
+      contentEmbedding = await EmbeddingService.generateImageEmbedding(image_base64);
+    } else if (content_id) {
       // Validate existing content
       const { data: existingContent, error } = await ContentModel.getById(
         content_id
@@ -193,7 +221,7 @@ export const ValidationController = {
         }
       }
     } else {
-      // Validate new content
+      // Validate new text content
       textContent = content!;
       projectId = project_id!;
       contentEmbedding = await EmbeddingService.generateDocumentEmbedding(
@@ -211,12 +239,14 @@ export const ValidationController = {
    * @param contentEmbedding - Embedding vector for the content being validated
    * @param project - Project object (expects `description`, `goals`, `customer_type`)
    * @param theme - Theme object (expects `name`, `tags`, `inspirations`)
+   * @param useMultimodal - If true, use multimodal embeddings (for image comparison)
    * @returns A rounded integer percentage [0-100] representing average similarity
    */
   async calculateBrandConsistency(
     contentEmbedding: number[],
     project: Project,
-    theme: Theme
+    theme: Theme,
+    useMultimodal: boolean = false
   ): Promise<number> {
     // Build concise reference texts that capture the brand's language and
     // stylistic signals. Only include texts that have meaningful content.
@@ -247,9 +277,14 @@ export const ValidationController = {
     }
 
     // Generate embeddings for each brand reference in parallel.
-    // Use RETRIEVAL_DOCUMENT task type for symmetric comparison with content embeddings.
+    // Use multimodal embeddings (1408 dims) when comparing against images,
+    // otherwise use text-embedding-004 (768 dims) for text comparison.
     const brandEmbeddings = await Promise.all(
-      brandTexts.map((text) => EmbeddingService.generateDocumentEmbedding(text))
+      brandTexts.map((text) =>
+        useMultimodal
+          ? EmbeddingService.generateMultimodalTextEmbedding(text)
+          : EmbeddingService.generateDocumentEmbedding(text)
+      )
     );
 
     // Compute cosine similarity between the content and each brand embedding.
@@ -257,25 +292,38 @@ export const ValidationController = {
       EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
     );
 
+    logger.info(`ValidationController: Brand consistency - similarity scores: ${JSON.stringify(similarityScores.map(s => s.toFixed(4)))}, useMultimodal: ${useMultimodal}`);
+
     // Average the similarity scores and scale to intuitive percentage.
-    // text-embedding-004 produces similarity in range ~0.3-0.8 for varied content:
-    // - 0.3-0.4: unrelated content
-    // - 0.5-0.6: weakly related
-    // - 0.6-0.7: moderately related
-    // - 0.7-0.8: strongly related
-    // We scale this to 0-100% where:
-    // - <0.4 maps to 0-40% (poor alignment)
-    // - 0.4-0.6 maps to 40-70% (moderate alignment)
-    // - >0.6 maps to 70-100% (good alignment)
     const avgSimilarity =
       similarityScores.reduce((sum, score) => sum + score, 0) /
       similarityScores.length;
 
-    // Scale similarity to more intuitive brand score
-    // Baseline of 0.4 represents random/unrelated content
-    // Similarity of 0.75+ represents excellent brand match
-    const baseline = 0.4;
-    const ceiling = 0.75;
+    // Use different scaling parameters for multimodal vs text embeddings.
+    // Cross-modal (image-to-text) similarity produces much lower raw values:
+    // - Multimodal: 0.0-0.3 range (image-to-text comparison)
+    // - Text-only: 0.3-0.8 range (text-to-text comparison)
+    let baseline: number;
+    let ceiling: number;
+
+    if (useMultimodal) {
+      // Multimodal embeddings produce lower similarity for cross-modal comparison
+      // - 0.0-0.05: completely unrelated
+      // - 0.05-0.15: weakly related
+      // - 0.15-0.25: moderately related
+      // - 0.25+: strongly related
+      baseline = 0.02;
+      ceiling = 0.25;
+    } else {
+      // Text-embedding-004 produces higher similarity for text-to-text
+      // - 0.3-0.4: unrelated content
+      // - 0.5-0.6: weakly related
+      // - 0.6-0.7: moderately related
+      // - 0.7-0.8: strongly related
+      baseline = 0.4;
+      ceiling = 0.75;
+    }
+
     const scaledScore = Math.max(
       0,
       Math.min(100, ((avgSimilarity - baseline) / (ceiling - baseline)) * 100)

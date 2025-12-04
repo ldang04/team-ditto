@@ -141,6 +141,54 @@ export class EmbeddingService {
   }
 
   /**
+   * Generate a text embedding using the multimodal model.
+   *
+   * Uses multimodalembedding@001 which outputs 1408-dimensional vectors.
+   * This allows comparing text against images in the same vector space.
+   *
+   * @param text - The text to embed.
+   * @returns A Promise resolving to a 1408-dimensional numeric array.
+   */
+  static async generateMultimodalTextEmbedding(text: string): Promise<number[]> {
+    try {
+      logger.info(
+        `EmbeddingService: generateMultimodalTextEmbedding for "${text.slice(0, 50)}..."`
+      );
+      const client = await this.auth.getClient();
+
+      const response = await client.request({
+        url: this.multimodalUrl,
+        method: "POST",
+        data: {
+          instances: [
+            {
+              text: text,
+            },
+          ],
+        },
+      });
+
+      const embedding =
+        (response.data as any)?.predictions?.[0]?.textEmbedding || [];
+
+      if (embedding.length === 0) {
+        logger.warn(
+          "No text embedding returned from multimodal API, using fallback"
+        );
+        return this.generateFallbackEmbedding(text, IMAGE_EMBEDDING_DIMS);
+      }
+
+      logger.info(
+        `EmbeddingService: Generated multimodal text embedding (${embedding.length} dims)`
+      );
+      return embedding;
+    } catch (error) {
+      logger.error("Failed to generate multimodal text embedding:", error);
+      return this.generateFallbackEmbedding(text, IMAGE_EMBEDDING_DIMS);
+    }
+  }
+
+  /**
    * Generate an embedding for image data (base64).
    *
    * Uses multimodalembedding@001 which outputs 1408-dimensional vectors.
