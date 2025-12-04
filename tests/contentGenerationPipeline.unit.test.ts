@@ -494,9 +494,6 @@ describe("ContentGenerationPipeline", () => {
   describe("execute - parallel execution", () => {
     // Execution behavior: Stage 1 runs ThemeAnalysis and RAG in parallel
     it("runs theme analysis and RAG in parallel", async () => {
-      const themeAnalysisStart = Date.now();
-      let ragStart = 0;
-
       (ThemeAnalysisService.analyzeTheme as jest.Mock).mockImplementation(
         () => {
           // Record that this started at roughly the same time as RAG
@@ -505,7 +502,6 @@ describe("ContentGenerationPipeline", () => {
       );
 
       (RAGService.performRAG as jest.Mock).mockImplementation(async () => {
-        ragStart = Date.now();
         return mockRagContext;
       });
 

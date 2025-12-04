@@ -380,3 +380,6 @@ describe("Image API", () => {
     });
   });
 });
+
+//To run the real image generation:
+//NODE_OPTIONS=--experimental-vm-modules RUN_REAL_IMAGE_TESTS=1 jest tests/image.api.test.ts --runInBand --verbose

@@ -333,6 +333,7 @@ export const RankingController = {
     brandScore: number,
     qualityScore: number
   ): string {
+    logger.info("Generating recommendation for quality score:", qualityScore);
     if (overallScore >= 85) {
       return "Excellent - Best option with strong brand alignment and high quality";
     } else if (overallScore >= 70) {
