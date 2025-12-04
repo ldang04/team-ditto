@@ -53,6 +53,8 @@ export const ImageGenerationController = {
         target_audience = "general",
         variantCount = 3,
         aspectRatio = "1:1",
+        input_images = [], // Optional: array of {data: base64, mimeType: string}
+        overlay_text = "", // Optional: text to render in the generated image
       } = req.body;
 
       // Validate variantCount: must be an integer between 0 and 10.
@@ -157,6 +159,8 @@ export const ImageGenerationController = {
         aspectRatio: validatedAspectRatio as any,
         numberOfImages: validatedVariantCount,
         guidanceScale: 15,
+        inputImages: input_images.length > 0 ? input_images : undefined,
+        overlayText: overlay_text || undefined,
       });
 
       // STEP 6: Save to storage and database
