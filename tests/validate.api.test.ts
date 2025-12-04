@@ -29,19 +29,19 @@ jest.mock("../src/services/EmbeddingService", () => {
 
   return {
     EmbeddingService: {
-      generateDocumentEmbedding: jest.fn(async (text: string) => {
+      generateDocumentEmbedding: jest.fn(async () => {
         return generateMockEmbedding();
       }),
-      generateImageEmbedding: jest.fn(async (imageData: string) => {
+      generateImageEmbedding: jest.fn(async () => {
         return generateMockEmbedding();
       }),
-      generateAndStoreText: jest.fn(async (contentId: string, text: string) => {
+      generateAndStoreText: jest.fn(async () => {
         return generateMockEmbedding();
       }),
-      generateAndStoreImage: jest.fn(async (contentId: string, imageData: string) => {
+      generateAndStoreImage: jest.fn(async () => {
         return generateMockEmbedding();
       }),
-      cosineSimilarity: jest.fn((vecA: number[], vecB: number[]) => {
+      cosineSimilarity: jest.fn(() => {
         // Mock cosine similarity - return high similarity (0.85-0.95) for aligned content
         // This ensures brand_consistency_score will be >= 80
         return 0.85 + Math.random() * 0.1;
