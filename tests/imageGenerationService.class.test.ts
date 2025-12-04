@@ -1,5 +1,17 @@
 /**
- * ImageGenerationService - Equivalence partitions and test mapping
+ * ImageGenerationService - Class test (provider integration via abstraction)
+ *
+ * Scope: This file serves as the class-level test for ImageGenerationService by
+ * exercising `generateImages(params)` end-to-end with mocked provider client and
+ * documenting integrations and composed behavior.
+ *
+ * Integrations under test:
+ * - Vertex AI / GenAI client (generateContent): mocked via `client.models.generateContent`
+ *   to avoid external calls while controlling candidate responses.
+ * - Logger/config: logs service initialization and errors; respects configured
+ *   model and maps provider response parts to `GeneratedImage` structures.
+ * - Downstream usage: outputs are designed to be consumed by controllers/pipeline
+ *   for storage and scoring (verified indirectly via shape and fields).
  *
  * Units under test:
  * - ImageGenerationService.generateImages(params)

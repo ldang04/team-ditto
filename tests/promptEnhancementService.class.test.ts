@@ -1,5 +1,17 @@
 /**
- * PromptEnhancementService - Equivalence partitions and test mapping
+ * PromptEnhancementService - Class test (prompt branding + RAG integration)
+ *
+ * Scope: This file serves as the class-level test for PromptEnhancementService by
+ * exercising `enhancePromtWithRAG`, `buildBrandedPrompt`, and `scoreRagQuality`
+ * end-to-end with realistic inputs and documenting integrations.
+ *
+ * Integrations under test:
+ * - RAG context: uses `avgSimilarity` and `similarDescriptions` to shape enhanced prompts
+ * - Theme analysis: leverages `color_palette`, `dominant_styles`, `visual_mood`, and
+ *   theme inspirations for branded prompt composition
+ * - Logger: records info/errors during enhancement and scoring operations
+ * - Downstream usage: outputs (`prompt`, `negativePrompt`, enhanced strings, scores)
+ *   feed into generation services and pipelines; tests validate shapes and thresholds
  *
  * Units under test:
  * - enhancePromtWithRAG(userPrompt, ragContext, themeAnalysis)

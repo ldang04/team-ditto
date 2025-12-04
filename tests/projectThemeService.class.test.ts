@@ -1,5 +1,17 @@
 /**
- * ProjectThemeService - Equivalence partitions and test mapping
+ * ProjectThemeService - Class test (DB integration via models)
+ *
+ * Scope: This file serves as the class-level test for ProjectThemeService by
+ * exercising `getProjectAndTheme(project_id)` end-to-end with mocked models and
+ * documenting integrations and composed behavior.
+ *
+ * Integrations under test:
+ * - `ProjectModel.getById`: fetches project records including `theme_id`.
+ * - `ThemeModel.getById`: fetches theme records for the project.
+ * - `logger`: records info/errors when entities are missing or exceptions occur.
+ * - Downstream usage: the returned `{ project, theme } | null` is consumed by
+ *   controllers/pipelines for theme-aware flows; these tests validate shape and
+ *   error handling behavior.
  *
  * Unit under test:
  * - ProjectThemeService.getProjectAndTheme(project_id)

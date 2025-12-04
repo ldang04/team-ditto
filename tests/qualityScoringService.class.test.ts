@@ -1,10 +1,20 @@
 /**
- * QualityScoringService - Equivalence partitions and test mapping
+ * QualityScoringService — Class Test + Integrations Documentation
  *
- * Units under test:
- * - QualityScoringService.scoreTextQuality(text)
- * - QualityScoringService.scoreImageQuality(promptText, theme)
- * - QualityScoringService.scorePromptQuality(prompt, themeTags)
+ * Scope:
+ * - Exercises multiple non-trivial methods of `QualityScoringService`:
+ *   - scoreTextQuality(text)
+ *   - scoreImageQuality(promptText, theme)
+ *   - scorePromptQuality(prompt, themeTags)
+ * - Uses equivalence partitions and boundaries to validate heuristics.
+ *
+ * Integrations:
+ * - Logger: `src/config/logger` — informational logs emitted during scoring.
+ * - Config: `src/config/keywords` — quality/style/color/composition keywords used
+ *   by scoring heuristics; tests indirectly exercise this configuration.
+ * - Downstream usage: Scoring outputs are consumed by pipeline stages
+ *   (e.g., `ContentGenerationPipeline`) and ranking flows/controllers
+ *   (e.g., `RankController`), informing variant selection and ordering.
  *
  * Partitions (text inputs):
  * - T1: missing / undefined (invalid)
@@ -32,7 +42,6 @@
  * - scorePromptQuality:
  *   - ideal length (20-100) : T4 + tag matches
  *   - too short / too long: T3 / T5
- *
  */
 
 import { QualityScoringService } from "../src/services/QualityScoringService";

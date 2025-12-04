@@ -1,5 +1,19 @@
 /**
- * EmbeddingService - Equivalence partitions and test mapping
+ * EmbeddingService - Class test (provider integration via abstraction)
+ *
+ * Scope: This file serves as the class-level test for EmbeddingService by
+ * exercising initialization and public methods end-to-end while documenting
+ * integrations and verifying composed behavior.
+ *
+ * Integrations under test:
+ * - Provider SDKs (Vertex AI / GenAI): used under the hood by EmbeddingService
+ *   to generate text, query, image and multimodal text embeddings. In this class test,
+ *   we mock the underlying HTTP client via `auth.getClient().request(...)` to avoid
+ *   external dependencies and to control responses.
+ * - Config/logger: logs initialization details and errors; respects configured model
+ *   names and dimensions (768 text, 1408 multimodal) in service operations.
+ * - Persistence (EmbeddingsModel): storing generated embeddings is exercised and
+ *   errors are tolerated while returning embeddings.
  *
  * Inputs / partitions (text / image inputs):
  * - T1: missing / undefined input (invalid)

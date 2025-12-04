@@ -1,8 +1,19 @@
 /**
- * TextGenerationService - Equivalence partitions and test mapping
+ * TextGenerationService — Class Test + Integrations Documentation
  *
- * Unit under test:
- * - TextGenerationService.generateContent(params)
+ * Scope:
+ * - Exercises `TextGenerationService.generateContent(params)` with multiple
+ *   non-trivial behaviors: marker parsing, paragraph fallback, variant
+ *   slicing, and error handling.
+ *
+ * Integrations:
+ * - Logger: `src/config/logger` — initialization and generation logs.
+ * - Provider client: Underlying GenAI model accessed via
+ *   `TextGenerationService.model.generateContent`; tests stub model calls to
+ *   avoid external API usage.
+ * - Downstream usage: Generated text variants are consumed by controllers
+ *   (e.g., `TextGenerationController`) and the `ContentGenerationPipeline`
+ *   to persist variants, compute quality scores, and select top results.
  *
  * Input partitions (params.prompt / params.variantCount / params.media_type):
  * - T1: missing / undefined prompt (invalid)
@@ -14,17 +25,17 @@
  * - V3: variantCount > generated variants (above available)
  *
  * Model response partitions:
- * - R1: model returns text with explicit markers ---VARIANT_START--- / ---VARIANT_END--- (valid)
- * - R2: model returns text without markers but with paragraph separators (fallback)
- * - R3: model returns no candidates / empty -> fallback to default text
- * - R4: model.generateContent throws -> service throws (error)
+ * - R1: text with markers ---VARIANT_START--- / ---VARIANT_END--- (valid)
+ * - R2: text without markers but with paragraph separators (fallback)
+ * - R3: no candidates / empty -> fallback to default text
+ * - R4: model.generateContent throws -> service error
  *
  * Mapping -> tests:
- * - Marker parsing: R1 exercised by tests with markers and variantCount slicing
- * - Fallback paragraph parsing: R2 exercised by tests without markers
- * - Boundary: variantCount 0, >available exercised by V1/V3 tests
- * - Invalid inputs: T1/T2/T3 exercised by undefined/empty/padded prompt tests
- * - Error: R4 exercised by rejection test
+ * - Marker parsing: R1 with variantCount slicing
+ * - Paragraph fallback: R2 without markers
+ * - Boundaries: V1/V3 for counts
+ * - Invalid inputs: T1/T2/T3
+ * - Error path: R4 rejection
  */
 
 // Ensure VertexAI initialization has a project id during tests

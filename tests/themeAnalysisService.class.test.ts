@@ -1,15 +1,24 @@
 /**
- * ThemeAnalysisService - Equivalence partitions and test mapping
+ * ThemeAnalysisService — Class Test + Integrations Documentation
  *
- * Functions covered:
- * - analyzeTheme(theme)
- * - extractColorPalette(theme) [private]
- * - getColors(tokens) [private]
- * - assignPalette(explicit, adjectives, combined) [private]
- * - calculateStyleScores(theme) [private]
- * - determineVisualMood(theme) [private]
- * - calculateComplexityScore(theme) [private]
- * - calculateBrandStrength(theme) [private]
+ * Scope:
+ * - Exercises multiple non-trivial parts of `ThemeAnalysisService`:
+ *   - analyzeTheme(theme)
+ *   - extractColorPalette(theme) [private]
+ *   - getColors(tokens) [private]
+ *   - assignPalette(explicit, adjectives, combined) [private]
+ *   - calculateStyleScores(theme) [private]
+ *   - determineVisualMood(theme) [private]
+ *   - calculateComplexityScore(theme) [private]
+ *   - calculateBrandStrength(theme) [private]
+ * - Validates color inference, style/mood scoring, complexity and brand strength.
+ *
+ * Integrations:
+ * - Logger: `src/config/logger` — analysis steps and derived metrics.
+ * - Config: `src/config/keywords` (style/mood/color terms) — indirectly
+ *   exercised via token matching and scoring heuristics.
+ * - Downstream usage: Theme analysis feeds `ContentGenerationPipeline` and
+ *   `PromptEnhancementService` to build branded prompts and metadata.
  *
  * Input partitions (theme):
  * - T1: undefined / null theme (invalid)
@@ -21,7 +30,6 @@
  * - R1: explicit color mentions present (valid)
  * - R2: adjective-derived colors match (valid)
  * - R3: no color tokens -> fallback behavior (boundary)
- *
  */
 
 import logger from "../src/config/logger";
