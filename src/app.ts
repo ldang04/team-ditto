@@ -6,6 +6,7 @@ import contentsRouter from "./routes/contentRoutes";
 import textRouter from "./routes/textRoutes";
 import imageRouter from "./routes/imageRoutes";
 import validationRouter from "./routes/validationRoutes";
+import rankingRouter from "./routes/rankingRoutes";
 import { HealthController } from "./controllers/HealthController";
 
 const app = express();
@@ -26,5 +27,6 @@ app.use("/api", contentsRouter);
 app.use("/api/text", textRouter);
 app.use("/api/images", imageRouter);
 app.use("/api/validate", validationRouter);
+app.use("/api/rank", rankingRouter);
 
 export default app;
