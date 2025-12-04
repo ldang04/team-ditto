@@ -335,8 +335,10 @@ export const RankingController = {
     } else if (overallScore >= 50) {
       if (brandScore < 60) {
         return "Acceptable - Quality is good but brand alignment could be improved";
-      } else {
+      } else if (qualityScore < 60) {
         return "Acceptable - Brand alignment is good but quality could be improved";
+      } else {
+        return "Acceptable - Both brand alignment and quality could be improved";
       }
     } else {
       return "Needs improvement - Consider regenerating or refining this content";
