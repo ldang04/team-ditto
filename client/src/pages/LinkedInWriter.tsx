@@ -1,32 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import {
   Loader2,
   Send,
-  Save,
-  Trash2,
   Hash,
-  Clock,
   Copy,
   Check,
-  FileText,
   Sparkles,
   Image,
-  Download,
-  RefreshCw
 } from 'lucide-react';
-
-interface Draft {
-  id: string;
-  topic: string;
-  content: string;
-  projectId: string;
-  createdAt: string;
-  hashtags: string[];
-  imageUrl?: string;
-}
 
 const LINKEDIN_CHAR_LIMIT = 3000;
 const LINKEDIN_OPTIMAL_LENGTH = 1300; // Optimal for engagement
@@ -34,24 +18,16 @@ const LINKEDIN_OPTIMAL_LENGTH = 1300; // Optimal for engagement
 export default function LinkedInWriter() {
   const [searchParams] = useSearchParams();
   const campaignIdParam = searchParams.get('campaign_id');
+  const navigate = useNavigate();
   
   const [topic, setTopic] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(campaignIdParam || '');
   const [generatedContent, setGeneratedContent] = useState('');
   const [hashtags, setHashtags] = useState<string[]>([]);
-  const [drafts, setDrafts] = useState<Draft[]>([]);
   const [copied, setCopied] = useState(false);
-  const [showDrafts, setShowDrafts] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [includeImage, setIncludeImage] = useState(true);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
-  // Load drafts from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('linkedin_drafts');
-    if (saved) {
-      setDrafts(JSON.parse(saved));
-    }
-  }, []);
 
   // Pre-fill campaign from URL parameter
   useEffect(() => {
@@ -60,11 +36,6 @@ export default function LinkedInWriter() {
     }
   }, [campaignIdParam]);
 
-  // Save drafts to localStorage
-  const saveDrafts = (newDrafts: Draft[]) => {
-    setDrafts(newDrafts);
-    localStorage.setItem('linkedin_drafts', JSON.stringify(newDrafts));
-  };
 
   const { data: projectsData, isLoading: loadingProjects } = useQuery({
     queryKey: ['projects'],
@@ -84,6 +55,9 @@ export default function LinkedInWriter() {
   // Generate LinkedIn post using Ditto API
   const generatePost = useMutation({
     mutationFn: async () => {
+      // Reset previous outputs
+      setGeneratedImageUrl(null);
+
       // Generate post text content
       const response = await apiClient.generateText({
         project_id: selectedProjectId,
@@ -96,7 +70,8 @@ export default function LinkedInWriter() {
         variantCount: 1,
       });
 
-      const content = response.data?.variants?.[0]?.generated_content || '';
+      const variant = response.data?.variants?.[0];
+      const content = variant?.generated_content || '';
       setGeneratedContent(content);
 
       // Generate relevant hashtags
@@ -129,7 +104,7 @@ export default function LinkedInWriter() {
             overlay_text: overlayText,
           });
 
-          const imageUrl = imageResponse.data?.variants?.[0]?.image_url;
+          const imageUrl = imageResponse.data?.variants?.[0]?.image_url || null;
           if (imageUrl) {
             setGeneratedImageUrl(imageUrl);
           }
@@ -140,40 +115,6 @@ export default function LinkedInWriter() {
       }
 
       return content;
-    },
-  });
-
-  // Regenerate just the image with new overlay text
-  const regenerateImage = useMutation({
-    mutationFn: async () => {
-      // Generate new headline for overlay
-      const headlineResponse = await apiClient.generateText({
-        project_id: selectedProjectId,
-        prompt: `Write a single powerful, quotable headline (max 10 words) about: ${topic}.
-          This will be overlaid on a LinkedIn post image.
-          Make it punchy, memorable, and shareable.
-          Do not use quotes or punctuation at the start/end.
-          Just return the headline text, nothing else.`,
-        variantCount: 1,
-      });
-
-      const overlayText = headlineResponse.data?.variants?.[0]?.generated_content?.trim() || '';
-
-      const imageResponse = await apiClient.generateImage({
-        project_id: selectedProjectId,
-        prompt: `Professional LinkedIn post image about: ${topic}.
-          Clean, modern, business-appropriate visual.
-          High quality, engaging, suitable for professional social media.`,
-        variantCount: 1,
-        aspectRatio: '1:1',
-        overlay_text: overlayText,
-      });
-
-      const imageUrl = imageResponse.data?.variants?.[0]?.image_url;
-      if (imageUrl) {
-        setGeneratedImageUrl(imageUrl);
-      }
-      return imageUrl;
     },
   });
 
@@ -190,38 +131,6 @@ export default function LinkedInWriter() {
 
     const allHashtags = [...new Set([...topicHashtags, ...commonHashtags.slice(0, 2)])].slice(0, 5);
     setHashtags(allHashtags);
-  };
-
-  // Save current post as draft
-  const saveDraft = () => {
-    if (!generatedContent) return;
-
-    const draft: Draft = {
-      id: Date.now().toString(),
-      topic,
-      content: generatedContent,
-      projectId: selectedProjectId,
-      createdAt: new Date().toISOString(),
-      hashtags,
-      imageUrl: generatedImageUrl || undefined,
-    };
-
-    saveDrafts([draft, ...drafts]);
-  };
-
-  // Load a draft
-  const loadDraft = (draft: Draft) => {
-    setTopic(draft.topic);
-    setGeneratedContent(draft.content);
-    setSelectedProjectId(draft.projectId);
-    setHashtags(draft.hashtags);
-    setGeneratedImageUrl(draft.imageUrl || null);
-    setShowDrafts(false);
-  };
-
-  // Delete a draft
-  const deleteDraft = (id: string) => {
-    saveDrafts(drafts.filter(d => d.id !== id));
   };
 
   // Copy post to clipboard
@@ -244,6 +153,11 @@ export default function LinkedInWriter() {
   const charCount = generatedContent.length;
   const isOverLimit = charCount > LINKEDIN_CHAR_LIMIT;
   const isOptimalLength = charCount > 0 && charCount <= LINKEDIN_OPTIMAL_LENGTH;
+
+  const handleComplete = () => {
+    if (!selectedProjectId) return;
+    navigate(`/campaigns/${selectedProjectId}`);
+  };
 
   if (loadingProjects) {
     return (
@@ -409,38 +323,12 @@ export default function LinkedInWriter() {
                 </div>
               </div>
 
-              {/* Generated Image */}
+              {/* Generated Image Preview */}
               {generatedImageUrl && (
                 <div className="mt-6 border-t border-gray-100 pt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Image className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">Post Image</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => regenerateImage.mutate()}
-                        disabled={regenerateImage.isPending}
-                        className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
-                      >
-                        {regenerateImage.isPending ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                        Regenerate
-                      </button>
-                      <a
-                        href={generatedImageUrl}
-                        download="linkedin-post-image.png"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
-                      >
-                        <Download className="h-3 w-3" />
-                        Download
-                      </a>
-                    </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Image className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700">Post Image</span>
                   </div>
                   <img
                     src={generatedImageUrl}
@@ -469,120 +357,21 @@ export default function LinkedInWriter() {
                   )}
                 </button>
                 <button
-                  onClick={saveDraft}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  type="button"
+                  onClick={handleComplete}
+                  disabled={!selectedProjectId}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  title={!selectedProjectId ? 'Select a campaign first' : 'View campaign drafts'}
                 >
-                  <Save className="h-4 w-4" />
-                  Save Draft
+                  Complete
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Column - Preview & Drafts */}
+        {/* Right Column - Tips */}
         <div className="space-y-6">
-          {/* LinkedIn Preview */}
-          {generatedContent && (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-medium text-gray-900 text-sm">LinkedIn Preview</h3>
-              </div>
-              <div className="p-4">
-                {/* Fake LinkedIn post header */}
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-12 h-12 bg-gray-300 rounded-full" />
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">Your Name</p>
-                    <p className="text-xs text-gray-500">Your headline here</p>
-                    <p className="text-xs text-gray-400">Just now · 🌐</p>
-                  </div>
-                </div>
-                {/* Post content preview */}
-                <div className="text-sm text-gray-800 whitespace-pre-wrap">
-                  {generatedContent.slice(0, 300)}
-                  {generatedContent.length > 300 && (
-                    <span className="text-gray-400">... see more</span>
-                  )}
-                </div>
-                {/* Hashtags */}
-                <div className="mt-3 text-sm text-blue-600">
-                  {hashtags.map(h => `#${h}`).join(' ')}
-                </div>
-                {/* Post image preview */}
-                {generatedImageUrl && (
-                  <div className="mt-3 -mx-4">
-                    <img
-                      src={generatedImageUrl}
-                      alt="Post image"
-                      className="w-full"
-                    />
-                  </div>
-                )}
-                {/* Fake engagement bar */}
-                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between text-xs text-gray-500">
-                  <span>👍 Like</span>
-                  <span>💬 Comment</span>
-                  <span>🔄 Repost</span>
-                  <span>📤 Send</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Drafts */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowDrafts(!showDrafts)}
-              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-400" />
-                <span className="font-medium text-gray-900 text-sm">Saved Drafts</span>
-                <span className="text-xs text-gray-400">({drafts.length})</span>
-              </div>
-              <span className="text-gray-400">{showDrafts ? '−' : '+'}</span>
-            </button>
-
-            {showDrafts && (
-              <div className="border-t border-gray-100">
-                {drafts.length === 0 ? (
-                  <p className="p-4 text-sm text-gray-500 text-center">No drafts saved</p>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto">
-                    {drafts.map((draft) => (
-                      <div
-                        key={draft.id}
-                        className="p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <button
-                            onClick={() => loadDraft(draft)}
-                            className="text-left flex-1"
-                          >
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {draft.topic}
-                            </p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(draft.createdAt).toLocaleDateString()}
-                            </p>
-                          </button>
-                          <button
-                            onClick={() => deleteDraft(draft.id)}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Tips */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 text-sm mb-2">LinkedIn Tips</h4>

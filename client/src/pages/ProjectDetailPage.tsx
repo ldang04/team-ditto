@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import { ArrowLeft, FileText, Image as ImageIcon, Loader2, Send } from 'lucide-react';
 import type { Project, Content } from '../types';
@@ -7,6 +7,7 @@ import LinkedInPreview from '../components/LinkedInPreview';
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data: projectData, isLoading: projectLoading } = useQuery({
     queryKey: ['projects', id],
@@ -30,7 +31,7 @@ export default function ProjectDetailPage() {
   // Helper function to identify overlay text items
   // Overlay text is short text content created right before an image
   const isOverlayText = (textContent: Content, imageContents: Content[]): boolean => {
-    const OVERLAY_TEXT_THRESHOLD_MS = 10 * 1000; // 10 seconds
+    const OVERLAY_TEXT_THRESHOLD_MS = 15 * 1000; // 15 seconds
     const OVERLAY_TEXT_MAX_WORDS = 15; // Overlay text is typically short
     
     const textTime = textContent.created_at ? new Date(textContent.created_at).getTime() : 0;
@@ -166,6 +167,51 @@ export default function ProjectDetailPage() {
   
   const groupedContent = groupContentByTimeWindow(contents);
 
+  // Regenerate an entire post (text + image) for a given group
+  const handleRegeneratePost = async (group: { text: Content; image?: Content }) => {
+    if (!project?.id) return;
+
+    const basePrompt =
+      group.text.prompt ||
+      (group.text.text_content
+        ? `Rewrite this LinkedIn post in a fresh way while keeping the same intent:\n\n${group.text.text_content}`
+        : `Write a professional LinkedIn post for the campaign "${project.name}".`);
+
+    // Regenerate text
+    const textResponse = await apiClient.generateText({
+      project_id: project.id,
+      prompt: basePrompt,
+      variantCount: 1,
+    });
+
+    const textVariant = textResponse.data?.variants?.[0];
+
+    // Regenerate image
+    try {
+      const headlineResponse = await apiClient.generateText({
+        project_id: project.id,
+        prompt: `Write a single powerful, quotable headline (max 10 words) for a LinkedIn image for this post:\n\n${textVariant?.generated_content || group.text.text_content}`,
+        variantCount: 1,
+      });
+
+      const overlayText =
+        headlineResponse.data?.variants?.[0]?.generated_content?.trim() || '';
+
+      await apiClient.generateImage({
+        project_id: project.id,
+        prompt: `Professional LinkedIn post image for the campaign "${project.name}". Clean, modern, business-appropriate visual. High quality, engaging, suitable for professional social media.`,
+        variantCount: 1,
+        aspectRatio: '1:1',
+        overlay_text: overlayText,
+      });
+    } catch (e) {
+      console.error('Failed to regenerate image for post:', e);
+    }
+
+    // Refresh content list so the new post appears
+    await queryClient.invalidateQueries({ queryKey: ['content', id] });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -269,6 +315,7 @@ export default function ProjectDetailPage() {
                 textContent={group.text}
                 imageContent={group.image}
                 createdAt={group.createdAt}
+                onRegenerate={() => handleRegeneratePost(group)}
               />
             ))}
           </div>
