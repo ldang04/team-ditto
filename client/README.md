@@ -1,70 +1,75 @@
-# CopyForge - AI Marketing Asset Generator
+# LinkedIn Post Writer - AI-Powered LinkedIn Content Creator
 
-CopyForge is a marketing asset generation platform that creates complete, on-brand marketing packages. It uses the **Ditto Content API** as its AI backbone for content generation and brand validation.
+LinkedIn Post Writer is a focused content creation tool that helps professionals create engaging LinkedIn posts with AI-generated text and images. It uses the **Ditto Content API** as its AI backbone.
 
-## What Makes CopyForge a REAL Client (Not a UI Wrapper)
+## What Makes This a REAL Client (Not a UI Wrapper)
 
-CopyForge is **NOT** a simple API wrapper. It demonstrates genuine client-side functionality:
+This is **NOT** a simple API wrapper. It demonstrates genuine client-side functionality:
 
-### 1. Orchestration Logic
-The Asset Generator orchestrates **11+ sequential API calls** per generation:
-- 3 headline variants (generate + validate each)
-- 2 tagline variants (generate + validate each)
-- 2 body copy variants (generate + validate each)
-- 2 CTA variants (generate + validate each)
-- 2 hero images (generate with quality metrics)
+### 1. Multi-Step Content Generation Pipeline
+The Create page orchestrates **3 sequential API calls** per post:
+1. Generate post text (LinkedIn-optimized copy)
+2. Generate image headline (catchy overlay text)
+3. Generate image with AI text overlay
 
-### 2. Client-Side Ranking Algorithm
+### 2. LinkedIn-Specific Business Logic
 ```typescript
-// Custom ranking formula - client's own computation
-function rankAssets(assets: AssetVariant[]): AssetVariant[] {
-  return [...assets].sort((a, b) => {
-    const scoreA = (a.brandScore * 0.6) + (a.qualityScore * 0.3) + (a.passesValidation ? 10 : 0);
-    const scoreB = (b.brandScore * 0.6) + (b.qualityScore * 0.3) + (b.passesValidation ? 10 : 0);
-    return scoreB - scoreA;
-  });
+// Client enforces LinkedIn best practices
+const LINKEDIN_CHAR_LIMIT = 3000;
+const LINKEDIN_OPTIMAL_LENGTH = 1300; // Optimal for engagement
+
+// Client generates relevant hashtags from topic
+function generateHashtags(topic: string): string[] {
+  const words = topic.toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 3);
+  // Combine topic keywords with common LinkedIn hashtags
+  return [...topicHashtags, ...commonHashtags].slice(0, 5);
 }
 ```
 
-### 3. Asset Package Assembly
-The client intelligently selects the best-performing assets and assembles them into a recommended package with combined scoring.
+### 3. Draft Management System
+The client provides complete draft functionality:
+- Save posts to localStorage
+- Load drafts for editing
+- Delete outdated drafts
+- Persist image URLs with drafts
 
-### 4. Export Functionality
-Client creates downloadable JSON packages with all variants and scores - this data transformation happens entirely client-side.
+### 4. LinkedIn Preview
+Client renders a realistic LinkedIn post preview showing how content will appear.
 
-## CopyForge vs. Ditto API Relationship
+## LinkedIn Post Writer vs. Ditto API Relationship
 
 | Feature | Where It Happens | Description |
 |---------|------------------|-------------|
-| Text Generation | **Ditto API** | Raw AI content generation |
-| Image Generation | **Ditto API** | Image generation with RAG enhancement |
-| Brand Validation | **Ditto API** | Score content against embeddings |
-| **Multi-call Orchestration** | **CopyForge** | Coordinates 11+ API calls per package |
-| **Ranking Algorithm** | **CopyForge** | Custom weighted scoring formula |
-| **Asset Assembly** | **CopyForge** | Selects best assets, calculates combined scores |
-| **Progress Tracking** | **CopyForge** | Real-time generation status |
-| **Package Export** | **CopyForge** | JSON export with all variants |
-| **Workflow Management** | **CopyForge** | Campaigns, themes, organization |
+| Text Generation | **Ditto API** | Raw AI content generation with RAG |
+| Image Generation | **Ditto API** | Image generation with text overlay |
+| **LinkedIn Formatting** | **Client** | Character limits, optimal length hints |
+| **Hashtag Generation** | **Client** | Extract keywords, add common tags |
+| **Draft Management** | **Client** | localStorage persistence |
+| **Post Preview** | **Client** | LinkedIn-style UI preview |
+| **Multi-call Orchestration** | **Client** | Coordinates text + headline + image |
+| **Copy to Clipboard** | **Client** | Format post with hashtags |
 
-## What CopyForge Does
+## Features
 
-- **Asset Generator** - Generate complete marketing packages (headlines, taglines, body copy, CTAs, hero images)
-- **Campaign Management** - Organize marketing campaigns with brand themes
-- **AI Content Generation** - Generate text copy and images with automatic brand consistency
-- **Real-time Brand Validation** - Every piece of generated content is automatically scored
-- **Content Library** - Browse, search, and reuse all generated content
-- **Package Export** - Download complete asset packages as JSON
+- **AI Post Generation** - Generate LinkedIn-optimized text with brand voice
+- **AI Image Generation** - Create professional images with AI-generated headline overlays
+- **Smart Hashtags** - Auto-generate relevant hashtags from your topic
+- **Character Tracking** - Real-time character count with optimal length indicator
+- **Draft System** - Save, load, and manage post drafts
+- **LinkedIn Preview** - See how your post will look before publishing
+- **Copy to Clipboard** - One-click copy with formatted hashtags
 
-## How CopyForge Uses the Ditto API
+## How It Uses the Ditto API
 
-| CopyForge Feature | Ditto API Endpoint | Purpose |
-|-------------------|-------------------|---------|
-| Brand Setup | `POST /api/themes/create` | Store brand identity (keywords, inspirations) |
-| Campaign Creation | `POST /api/projects/create` | Create marketing campaigns linked to brands |
-| Text Generation | `POST /api/text/generate` | Generate AI-powered marketing copy |
-| Image Generation | `POST /api/images/generate` | Generate branded images with RAG enhancement |
-| Content Validation | `POST /api/validate` | Score content against brand guidelines |
-| Content Library | `GET /api/contents/:project_id` | Retrieve all generated content |
+| Feature | Ditto API Endpoint | Purpose |
+|---------|-------------------|---------|
+| Brand Voice | `GET /api/projects`, `GET /api/themes` | Load brand identity for generation |
+| Post Text | `POST /api/text/generate` | Generate LinkedIn post copy |
+| Image Headline | `POST /api/text/generate` | Generate catchy image overlay text |
+| Post Image | `POST /api/images/generate` | Generate image with text overlay |
 
 ## Prerequisites
 
@@ -84,7 +89,7 @@ Client creates downloadable JSON packages with all variants and scores - this da
    npm install
    ```
 
-## Running CopyForge
+## Running the App
 
 ### Development Mode
 
@@ -93,7 +98,7 @@ Client creates downloadable JSON packages with all variants and scores - this da
    npm start
    ```
 
-2. **Start CopyForge** (from client directory):
+2. **Start the client** (from client directory):
    ```bash
    npm run dev
    ```
@@ -102,7 +107,7 @@ Client creates downloadable JSON packages with all variants and scores - this da
 
 ### Connecting to Cloud-Deployed API
 
-To connect CopyForge to the GCP-deployed Ditto API, modify `vite.config.ts`:
+Modify `vite.config.ts`:
 
 ```typescript
 server: {
@@ -115,65 +120,48 @@ server: {
 }
 ```
 
-## Multi-Client Usage
-
-CopyForge supports multiple simultaneous client instances:
-
-### How Clients Are Differentiated
-- Each organization gets a unique **API key** on registration
-- API key is linked to a `client_id` in the Ditto service
-- All data (themes, campaigns, content) is isolated per client
-
-### Running Multiple Instances
-1. **Browser 1**: Create account for "Company A" -> gets API key A
-2. **Browser 2** (or incognito): Create account for "Company B" -> gets API key B
-3. Both can use CopyForge simultaneously with isolated data
-
-### Concurrency Handling
-- The Ditto API handles concurrent requests safely
-- Each request includes the API key in the `Authorization: Bearer {key}` header
-- Database operations are isolated per `client_id`
-
 ## Application Flow
 
 ```
-+-----------------------------------------------------------------+
-|  1. LOGIN / REGISTER                                             |
-|  - Create account (calls /api/clients/create)                    |
-|  - Receive API key (stored in localStorage)                      |
-|  - Or login with existing API key                                |
-+-----------------------------------------------------------------+
-                              |
-                              v
-+-----------------------------------------------------------------+
-|  2. BRAND SETUP (First-time users)                               |
-|  - Define brand name, keywords, inspirations                     |
-|  - Creates a Theme via /api/themes/create                        |
-|  - Create first campaign via /api/projects/create                |
-+-----------------------------------------------------------------+
-                              |
-                              v
-+-----------------------------------------------------------------+
-|  3. ASSET GENERATOR (Key Feature)                                |
-|  - Enter campaign goal + target audience                         |
-|  - CLIENT ORCHESTRATES: 11+ API calls                            |
-|    - 3x headline generate + validate                             |
-|    - 2x tagline generate + validate                              |
-|    - 2x body copy generate + validate                            |
-|    - 2x CTA generate + validate                                  |
-|    - 2x hero image generate                                      |
-|  - CLIENT RANKS: custom scoring algorithm                        |
-|  - CLIENT ASSEMBLES: recommended package                         |
-|  - CLIENT EXPORTS: downloadable JSON                             |
-+-----------------------------------------------------------------+
-                              |
-                              v
-+-----------------------------------------------------------------+
-|  4. CONTENT LIBRARY                                              |
-|  - Browse all generated content                                  |
-|  - Filter by campaign, type, search                              |
-|  - Reuse high-scoring content                                    |
-+-----------------------------------------------------------------+
++----------------------------------------------------------+
+|  1. LOGIN / REGISTER                                      |
+|  - Create account (calls /api/clients/create)             |
+|  - Receive API key (stored in localStorage)               |
++----------------------------------------------------------+
+                          |
+                          v
++----------------------------------------------------------+
+|  2. BRAND SETUP (First-time users)                        |
+|  - Define brand name, keywords, inspirations              |
+|  - Creates a Theme via /api/themes/create                 |
+|  - Create first project via /api/projects/create          |
++----------------------------------------------------------+
+                          |
+                          v
++----------------------------------------------------------+
+|  3. CREATE - LinkedIn Post Writer                         |
+|  - Enter topic you want to post about                     |
+|  - Select brand voice (project/theme)                     |
+|  - Toggle "Generate post image" option                    |
+|  - CLIENT ORCHESTRATES:                                   |
+|    1. Generate post text via Ditto API                    |
+|    2. Generate image headline via Ditto API               |
+|    3. Generate image with overlay via Ditto API           |
+|  - CLIENT PROVIDES:                                       |
+|    - LinkedIn character limit tracking                    |
+|    - Hashtag generation & management                      |
+|    - Draft save/load functionality                        |
+|    - LinkedIn preview                                     |
+|    - Copy to clipboard                                    |
++----------------------------------------------------------+
+                          |
+                          v
++----------------------------------------------------------+
+|  4. CONTENT LIBRARY                                       |
+|  - Browse all generated content                           |
+|  - Filter by campaign, type, search                       |
+|  - Reuse high-quality content                             |
++----------------------------------------------------------+
 ```
 
 ## Project Structure
@@ -184,11 +172,9 @@ client/
 │   ├── pages/
 │   │   ├── LoginPage.tsx          # Authentication
 │   │   ├── BrandSetup.tsx         # Onboarding wizard
-│   │   ├── CampaignsDashboard.tsx # Campaign management
-│   │   ├── AssetGenerator.tsx     # ** KEY: Multi-call orchestration **
-│   │   ├── CampaignWorkspace.tsx  # Generate + validate content
-│   │   ├── ContentLibraryPage.tsx # Browse content
-│   │   └── SettingsPage.tsx       # Brand themes & account
+│   │   ├── CampaignsDashboard.tsx # Home/campaign overview
+│   │   ├── LinkedInWriter.tsx     # ** KEY: LinkedIn Post Creator **
+│   │   └── ContentLibraryPage.tsx # Browse content
 │   ├── components/
 │   │   └── Layout.tsx             # App shell with navigation
 │   ├── context/
@@ -202,34 +188,48 @@ client/
 └── README.md
 ```
 
-## Key Code: Client-Side Orchestration
+## Key Code: Client-Side LinkedIn Logic
 
-The `AssetGenerator.tsx` demonstrates real client functionality:
+The `LinkedInWriter.tsx` demonstrates real client functionality:
 
 ```typescript
-// Client orchestrates multiple API calls sequentially
-const generateAssetPackMutation = useMutation({
+// Client orchestrates multiple API calls
+const generatePost = useMutation({
   mutationFn: async () => {
-    // STAGE 1: Generate 3 headline variants
-    for (let i = 0; i < 3; i++) {
-      const response = await apiClient.generateText({ ... });
-      const validation = await apiClient.validateContent({ ... });
-      // Client computes combined score
-      const overallScore = (brandScore * 0.6) + (qualityScore * 0.4);
-      newPack.headlines.push({ ...variant, overallScore });
+    // 1. Generate post text with LinkedIn-specific prompt
+    const response = await apiClient.generateText({
+      project_id: selectedProjectId,
+      prompt: `Write a professional LinkedIn post about: ${topic}.
+        Keep it under ${LINKEDIN_OPTIMAL_LENGTH} characters...`,
+      variantCount: 1,
+    });
+    setGeneratedContent(response.data?.variants?.[0]?.generated_content);
+
+    // 2. Generate hashtags (CLIENT-SIDE logic)
+    generateHashtags(topic);
+
+    // 3. Generate image with AI-generated headline
+    if (includeImage) {
+      // First, generate a catchy headline for overlay
+      const headlineResponse = await apiClient.generateText({
+        prompt: `Write a powerful headline (max 10 words)...`,
+      });
+
+      // Then generate image with that headline
+      const imageResponse = await apiClient.generateImage({
+        prompt: `Professional LinkedIn post image...`,
+        overlay_text: headlineResponse.data?.variants?.[0]?.generated_content,
+      });
+      setGeneratedImageUrl(imageResponse.data?.variants?.[0]?.image_url);
     }
-
-    // STAGE 2-5: Similar for taglines, body, CTAs, images
-
-    // STAGE 6: CLIENT-SIDE RANKING (not from API!)
-    newPack.headlines = rankAssets(newPack.headlines);
-
-    // STAGE 7: CLIENT ASSEMBLES best package
-    const recommended = assembleAssetPackage(newPack);
-
-    return newPack;
   }
 });
+
+// Client manages drafts in localStorage
+const saveDraft = () => {
+  const draft = { topic, content, hashtags, imageUrl, ... };
+  localStorage.setItem('linkedin_drafts', JSON.stringify([draft, ...drafts]));
+};
 ```
 
 ## Building for Production
@@ -239,10 +239,6 @@ npm run build
 ```
 
 The production build will be in the `dist/` directory.
-
-## End-to-End Testing
-
-See [E2E_TESTS.md](./E2E_TESTS.md) for the complete manual testing checklist.
 
 ## Technologies Used
 
@@ -257,15 +253,15 @@ See [E2E_TESTS.md](./E2E_TESTS.md) for the complete manual testing checklist.
 
 ## Relationship to Ditto Content API
 
-CopyForge is a **genuine client application** that demonstrates how third-party developers can build applications using the Ditto Content API. The key distinction:
+This is a **genuine client application** that demonstrates how developers can build focused tools using the Ditto Content API:
 
 - **Ditto API**: Provides atomic operations (generate text, generate image, validate content)
-- **CopyForge**: Provides workflows, orchestration, ranking, assembly, and export
+- **Client**: Provides LinkedIn-specific workflow, formatting, drafts, and preview
 
 The API provides:
 - AI-powered content generation (text and images)
 - RAG-enhanced prompts (learns from past content)
-- Semantic brand validation (embedding-based similarity)
+- Brand voice consistency via themes
 - Multi-tenant data isolation
 
 See the main project [README.md](../README.md) for full API documentation.
