@@ -1,0 +1,78 @@
+name: Main Branch
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ----- Style Checking (ESLint) -----
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Generate ESLint HTML report
+        run: npm run lint:report
+        continue-on-error: true
+
+      - name: Upload ESLint report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-report
+          path: reports/eslint-report.html
+
+      # ----- Static Analysis -----
+      - name: Static analysis
+        run: npm run analyze:ci
+
+      # ----- Unit Tests -----
+      - name: Run unit tests with JUnit + coverage
+        run: npm run test:unit:junit
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-junit
+          path: reports/jest-junit.xml
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage
+
+      - name: Upload Coverage Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: coverage
+
+      # ----- Start Server (for API tests) -----
+      - name: Start server in background
+        run: |
+          npm run start &
+          echo "Server started in background..."
+
+      - name: Install wait-on
+        run: npm install -g wait-on
+
+      - name: Wait for server to be ready
+        run: wait-on http://localhost:3000
+
+      # ----- Run API Tests -----
+      - name: Run API tests
+        run: npm run api:test
