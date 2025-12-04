@@ -1,17 +1,27 @@
 /**
  * EmbeddingService.ts
  *
- * Handles all text embedding operations using Vertex AI Text Embeddings API
- * Model: text-embedding-004 (768 dimensions)
+ * Handles all embedding operations using Vertex AI APIs:
+ * - Text embeddings: text-embedding-004 (768 dimensions) for semantic similarity
+ * - Image embeddings: multimodalembedding@001 (1408 dimensions) for image storage/search
+ *
+ * Text embeddings are used for brand consistency scoring and RAG.
+ * Image embeddings are stored for potential future image search features.
  */
 
 import { GoogleAuth } from "google-auth-library";
 import { EmbeddingsModel } from "../models/EmbeddingsModel";
 import logger from "../config/logger";
 
+// Embedding dimensions
+const TEXT_EMBEDDING_DIMS = 768;
+const IMAGE_EMBEDDING_DIMS = 1408;
+
 export class EmbeddingService {
   private static auth: GoogleAuth;
   private static projectId: string;
+  private static textEmbeddingUrl: string;
+  private static multimodalUrl: string;
 
   /**
    * Initialize the service with GCP credentials
@@ -21,33 +31,36 @@ export class EmbeddingService {
       scopes: "https://www.googleapis.com/auth/cloud-platform",
     });
     this.projectId = process.env.GCP_PROJECT_ID || "";
-    logger.info("EmbeddingService: Initialized the service");
+
+    // Text embedding model for semantic text similarity
+    this.textEmbeddingUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/text-embedding-004:predict`;
+
+    // Multimodal model for image embeddings
+    this.multimodalUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/multimodalembedding@001:predict`;
+
+    logger.info(
+      "EmbeddingService: Initialized with text-embedding-004 (768 dims) and multimodal (1408 dims)"
+    );
   }
 
   /**
-   * Generate an embedding for document storage.
+   * Generate an embedding for document storage using text-embedding-004.
    *
-   * Sends the provided `text` to the Vertex AI Text Embeddings API
-   * (model: `text-embedding-004`) with task type `RETRIEVAL_DOCUMENT` and
-   * returns the resulting numeric embedding vector.
-   *
-   * If Vertex AI does not return an embedding or an error occurs while
-   * requesting the remote API, a deterministic local fallback embedding is
-   * generated via `generateFallbackEmbedding` to ensure the method always
-   * returns a 768-dimensional vector.
+   * Uses text-embedding-004 which outputs 768-dimensional vectors
+   * optimized for semantic text similarity comparisons.
    *
    * @param text - The document text to embed.
-   * @returns A Promise resolving to a 768-dimensional numeric array
-   * representing the embedding vector.
+   * @returns A Promise resolving to a 768-dimensional numeric array.
    */
   static async generateDocumentEmbedding(text: string): Promise<number[]> {
     try {
-      logger.info(`EmbeddingService: generateDocumentEmbedding for ${text}`);
+      logger.info(
+        `EmbeddingService: generateDocumentEmbedding for "${text.slice(0, 50)}..."`
+      );
       const client = await this.auth.getClient();
-      const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/text-embedding-004:predict`;
 
       const response = await client.request({
-        url,
+        url: this.textEmbeddingUrl,
         method: "POST",
         data: {
           instances: [
@@ -63,42 +76,39 @@ export class EmbeddingService {
         (response.data as any)?.predictions?.[0]?.embeddings?.values || [];
 
       if (embedding.length === 0) {
-        logger.warn("No embedding returned from Vertex AI, using fallback");
-        return this.generateFallbackEmbedding(text);
+        logger.warn(
+          "No text embedding returned from API, using fallback"
+        );
+        return this.generateFallbackEmbedding(text, TEXT_EMBEDDING_DIMS);
       }
 
+      logger.info(
+        `EmbeddingService: Generated text embedding (${embedding.length} dims)`
+      );
       return embedding;
     } catch (error) {
-      logger.error("Failed to generate Vertex AI embedding:", error);
-      return this.generateFallbackEmbedding(text);
+      logger.error("Failed to generate text embedding:", error);
+      return this.generateFallbackEmbedding(text, TEXT_EMBEDDING_DIMS);
     }
   }
 
   /**
    * Generate an embedding optimized for search queries.
    *
-   * Sends the provided `text` to the Vertex AI Text Embeddings API
-   * (model: `text-embedding-004`) with task type `RETRIEVAL_QUERY` and
-   * returns the resulting numeric embedding vector suitable for retrieval
-   * and semantic search.
-   *
-   * If Vertex AI does not return an embedding or an error occurs while
-   * requesting the remote API, a deterministic local fallback embedding is
-   * generated via `generateFallbackEmbedding` to ensure the method always
-   * returns a 768-dimensional vector.
+   * Uses text-embedding-004 with RETRIEVAL_QUERY task type.
    *
    * @param text - The query text to embed.
-   * @returns A Promise resolving to a 768-dimensional numeric array
-   * representing the embedding vector.
+   * @returns A Promise resolving to a 768-dimensional numeric array.
    */
   static async generateQueryEmbedding(text: string): Promise<number[]> {
     try {
-      logger.info(`EmbeddingService: generateQueryEmbedding for ${text}`);
+      logger.info(
+        `EmbeddingService: generateQueryEmbedding for "${text.slice(0, 50)}..."`
+      );
       const client = await this.auth.getClient();
-      const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/text-embedding-004:predict`;
 
       const response = await client.request({
-        url,
+        url: this.textEmbeddingUrl,
         method: "POST",
         data: {
           instances: [
@@ -114,34 +124,38 @@ export class EmbeddingService {
         (response.data as any)?.predictions?.[0]?.embeddings?.values || [];
 
       if (embedding.length === 0) {
-        logger.warn("No embedding returned from Vertex AI, using fallback");
-        return this.generateFallbackEmbedding(text);
+        logger.warn(
+          "No query embedding returned from API, using fallback"
+        );
+        return this.generateFallbackEmbedding(text, TEXT_EMBEDDING_DIMS);
       }
 
+      logger.info(
+        `EmbeddingService: Generated query embedding (${embedding.length} dims)`
+      );
       return embedding;
     } catch (error) {
       logger.error("Failed to generate query embedding:", error);
-      return this.generateFallbackEmbedding(text);
+      return this.generateFallbackEmbedding(text, TEXT_EMBEDDING_DIMS);
     }
   }
 
   /**
    * Generate an embedding for image data (base64).
    *
-   * Uses an image-capable embedding endpoint if available; otherwise falls
-   * back to the existing deterministic text-based fallback.
+   * Uses multimodalembedding@001 which outputs 1408-dimensional vectors.
+   * These embeddings are stored for potential future image search features.
    *
    * @param imageBase64 - Base64-encoded image bytes.
-   * @returns A Promise resolving to a 768-dimensional numeric array.
+   * @returns A Promise resolving to a 1408-dimensional numeric array.
    */
   static async generateImageEmbedding(imageBase64: string): Promise<number[]> {
     try {
       logger.info(`EmbeddingService: generateImageEmbedding`);
       const client = await this.auth.getClient();
-      const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/multimodalembedding@001:predict`;
 
       const response = await client.request({
-        url,
+        url: this.multimodalUrl,
         method: "POST",
         data: {
           instances: [
@@ -158,21 +172,26 @@ export class EmbeddingService {
         (response.data as any)?.predictions?.[0]?.imageEmbedding || [];
 
       if (embedding.length === 0) {
-        logger.warn("No embedding returned from Vertex AI, using fallback");
-        return this.generateFallbackEmbedding(imageBase64);
+        logger.warn(
+          "No image embedding returned from multimodal API, using fallback"
+        );
+        return this.generateFallbackEmbedding(imageBase64, IMAGE_EMBEDDING_DIMS);
       }
 
+      logger.info(
+        `EmbeddingService: Generated image embedding (${embedding.length} dims)`
+      );
       return embedding;
     } catch (error) {
       logger.error("Failed to generate image embedding:", error);
-      return this.generateFallbackEmbedding(imageBase64);
+      return this.generateFallbackEmbedding(imageBase64, IMAGE_EMBEDDING_DIMS);
     }
   }
 
   /**
    * Generate an embedding for the provided `text` and persist it.
    *
-   * Errors encountered while storing the embedding are logged
+   * Errors encountered while storing the embedding are logged.
    *
    * @param contentId - The external identifier for the content being stored.
    * @param text - The text content to embed and store.
@@ -205,11 +224,11 @@ export class EmbeddingService {
   /**
    * Generate an embedding for the provided `image` and persist it.
    *
-   * Errors encountered while storing the embedding are logged
+   * Errors encountered while storing the embedding are logged.
    *
    * @param contentId - The external identifier for the content being stored.
    * @param imageBase64 - The encoded image to embed and store.
-   * @returns A Promise that resolves to the generated 768-dimensional
+   * @returns A Promise that resolves to the generated 1408-dimensional
    * embedding vector.
    */
   static async generateAndStoreImage(
@@ -266,18 +285,17 @@ export class EmbeddingService {
   /**
    * Generate a deterministic fallback embedding.
    *
-   * Produces a 768-dimensional vector derived from simple text features
+   * Produces a vector of specified dimensions derived from simple text features
    * (word hashes, character n-grams, and basic text statistics). The
    * resulting vector is normalized so it can be used as a drop-in substitute
-   * for Vertex AI embeddings when the remote service is unavailable.
+   * when the remote service is unavailable.
    *
    * @param text - Input text to convert into an embedding.
-   * @returns A 768-dimensional normalized numeric array.
+   * @param dims - Target dimensionality for the embedding.
+   * @returns A normalized numeric array of the specified dimensions.
    */
-  private static generateFallbackEmbedding(text: string): number[] {
-    // Target embedding dimensionality to match Vertex AI model
-    const dimensions = 768; // Match Vertex AI text-embedding-004
-    const embedding = new Array(dimensions).fill(0);
+  private static generateFallbackEmbedding(text: string, dims: number): number[] {
+    const embedding = new Array(dims).fill(0);
 
     // Simple normalization and tokenization
     const normalized = text.toLowerCase().trim();
@@ -288,7 +306,7 @@ export class EmbeddingService {
     // earlier words contribute more (1 / (idx + 1))
     words.forEach((word, idx) => {
       const hash = this.hashString(word);
-      const position = hash % dimensions;
+      const position = hash % dims;
       embedding[position] += 1 / (idx + 1);
     });
 
@@ -296,7 +314,7 @@ export class EmbeddingService {
     for (let i = 0; i < chars.length - 2; i++) {
       const trigram = chars.slice(i, i + 3).join("");
       const hash = this.hashString(trigram);
-      const position = hash % dimensions;
+      const position = hash % dims;
       embedding[position] += 0.5;
     }
 
