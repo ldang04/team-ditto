@@ -19,6 +19,17 @@ This document lists issues discovered while auditing and augmenting tests across
   - Issue: `generateQueryEmbedding` and `generateImageEmbedding` previously returned empty arrays when the remote Vertex AI API returned an empty embedding payload. This caused downstream code to see zero-length embeddings.
   - Fix: Service functions now detect empty embeddings returned by the API and use the deterministic local `generateFallbackEmbedding` instead. 
 
+- **ContentGenerationPipeline: prompt validation and edge-case handling**
+  - Files: `src/services/ContentGenerationPipeline.ts`, tests in `tests/contentGenerationPipeline.unit.test.ts`
+  - Issues:
+    - Missing prompt validation allowed empty/non-string prompts to proceed, conflicting with tests expecting rejection.
+    - When generation returned no variants (e.g., `variantCount=0`), the pipeline continued scoring/analysis and ranking, leading to undefined contents and incorrect averages.
+    - `rankVariants` length could mismatch the number of generated variants, causing boundary tests to fail and potential truncation/expansion issues.
+  - Fixes:
+    - Added prompt validation to throw on non-string or empty prompts.
+    - Added early return path when no variants are generated, returning empty variants with correct metadata (averageQuality=0, averageCompositeScore=0) and diversity computed on empty.
+    - Normalized ranking length to match generated variants and adjusted averageCompositeScore calculation accordingly.
+
 ## Summary of API test Bug Findings & Fixes
 
 - **ThemeController: validation and normalization in create**
@@ -33,4 +44,3 @@ This document lists issues discovered while auditing and augmenting tests across
 
 ---
 
-Generated on: 2025-12-03

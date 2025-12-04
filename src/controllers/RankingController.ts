@@ -38,7 +38,9 @@ export const RankingController = {
       // Validate input: need either project_id OR content_ids
       if (
         !project_id &&
-        (!content_ids || !Array.isArray(content_ids) || content_ids.length === 0)
+        (!content_ids ||
+          !Array.isArray(content_ids) ||
+          content_ids.length === 0)
       ) {
         const serviceResponse = ServiceResponse.failure(
           null,
@@ -54,7 +56,9 @@ export const RankingController = {
       if (content_ids && Array.isArray(content_ids)) {
         // Rank specific content IDs
         logger.info(`Ranking specific content IDs: ${content_ids.join(", ")}`);
-        const { data: contents, error } = await ContentModel.getByIds(content_ids);
+        const { data: contents, error } = await ContentModel.getByIds(
+          content_ids
+        );
         if (error || !contents || contents.length === 0) {
           const serviceResponse = ServiceResponse.failure(
             null,
@@ -67,7 +71,9 @@ export const RankingController = {
       } else if (project_id) {
         // Rank all content for project
         logger.info(`Ranking all content for project: ${project_id}`);
-        const { data: contents, error } = await ContentModel.listByProject(project_id);
+        const { data: contents, error } = await ContentModel.listByProject(
+          project_id
+        );
         if (error) {
           throw error;
         }
@@ -121,7 +127,8 @@ export const RankingController = {
       // Calculate summary statistics
       const summary = {
         total_ranked: rankedContent.length,
-        top_score: rankedContent.length > 0 ? rankedContent[0].overall_score : 0,
+        top_score:
+          rankedContent.length > 0 ? rankedContent[0].overall_score : 0,
         average_score:
           rankedContent.length > 0
             ? Math.round(
@@ -146,6 +153,7 @@ export const RankingController = {
 
       return handleServiceResponse(serviceResponse, res);
     } catch (error: any) {
+      console.log(error);
       logger.error("Error in RankingController.rank:", error);
       const serviceResponse = ServiceResponse.failure(error);
       return handleServiceResponse(serviceResponse, res);
@@ -182,10 +190,9 @@ export const RankingController = {
             // Generate embedding if missing
             if (content.media_type === "image") {
               // For images, text_content contains base64 image data
-              contentEmbedding =
-                await EmbeddingService.generateImageEmbedding(
-                  content.text_content
-                );
+              contentEmbedding = await EmbeddingService.generateImageEmbedding(
+                content.text_content
+              );
             } else {
               // For text content, generate text embedding
               contentEmbedding =
@@ -302,9 +309,7 @@ export const RankingController = {
 
     // Generate embeddings for brand references
     const brandEmbeddings = await Promise.all(
-      brandTexts.map((text) =>
-        EmbeddingService.generateDocumentEmbedding(text)
-      )
+      brandTexts.map((text) => EmbeddingService.generateDocumentEmbedding(text))
     );
 
     // Compute cosine similarity
@@ -328,6 +333,7 @@ export const RankingController = {
     brandScore: number,
     qualityScore: number
   ): string {
+    logger.info("Generating recommendation for quality score:", qualityScore);
     if (overallScore >= 85) {
       return "Excellent - Best option with strong brand alignment and high quality";
     } else if (overallScore >= 70) {
@@ -343,4 +349,3 @@ export const RankingController = {
     }
   },
 };
-
