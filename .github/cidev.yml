@@ -2,7 +2,13 @@ name: Main Branch
 
 on:
   push:
+    branches:
+    # THis allows for CI to be triggered on all branches
+      - '**'
+
   pull_request:
+    branches:
+      - main
 
 jobs:
   build-test:
