@@ -19,6 +19,37 @@
 process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "team-ditto";
 jest.setTimeout(15000);
 
+// Mock EmbeddingService to avoid real API calls
+// Note: Mocks must be at the top level (not inside conditionals) for Jest's hoisting to work.
+jest.mock("../src/services/EmbeddingService", () => {
+  // Generate a mock embedding vector (768 dimensions, typical for text embeddings)
+  const generateMockEmbedding = () => {
+    return Array.from({ length: 768 }, () => Math.random() * 0.1 + 0.9); // Values between 0.9-1.0 for high similarity
+  };
+
+  return {
+    EmbeddingService: {
+      generateDocumentEmbedding: jest.fn(async (text: string) => {
+        return generateMockEmbedding();
+      }),
+      generateImageEmbedding: jest.fn(async (imageData: string) => {
+        return generateMockEmbedding();
+      }),
+      generateAndStoreText: jest.fn(async (contentId: string, text: string) => {
+        return generateMockEmbedding();
+      }),
+      generateAndStoreImage: jest.fn(async (contentId: string, imageData: string) => {
+        return generateMockEmbedding();
+      }),
+      cosineSimilarity: jest.fn((vecA: number[], vecB: number[]) => {
+        // Mock cosine similarity - return high similarity (0.85-0.95) for aligned content
+        // This ensures brand_consistency_score will be >= 80
+        return 0.85 + Math.random() * 0.1;
+      }),
+    },
+  };
+});
+
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
