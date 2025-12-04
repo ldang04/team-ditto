@@ -27,7 +27,6 @@ import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
 import logger from "../src/config/logger";
-import { EmbeddingService } from "../src/services/EmbeddingService";
 
 describe("Validate API", () => {
   let apiKey: string;
