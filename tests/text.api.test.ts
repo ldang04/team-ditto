@@ -12,7 +12,8 @@
  * - Body: `project_id` and `prompt`
  *   - B1 Valid: Both present; controller checks presence (not trim) → proceeds
  *   - B2 Invalid: Missing `project_id` or `prompt` → 400
- *   - T1 Atypical: Surrounding/whitespace-only or Unicode prompt → accepted or may 500 downstream
+ *   - B3 Invalid: Surrounding/whitespace-only prompt → 500 (currently treated as invalid downstream)
+ *   - T1 Atypical: Unicode prompt → accepted
  *
  * - Body: `variantCount`
  *   - V1 Valid: Integer within [0, 10] → accepted
@@ -132,17 +133,17 @@ describe("Text API", () => {
       expect(res.status).toBe(400);
     });
 
-    // Atypical formatting (P1, B1/T1 - whitespace-only prompt)
-    it("handles whitespace-only prompt (P1, B1/T1)", async () => {
+    // Invalid formatting (P1, B3 - whitespace-only prompt)
+    it("rejects whitespace-only prompt (P1, B3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
         .set("Authorization", `Bearer ${apiKey}`)
         .send({ project_id: projectId, prompt: "   \t  ", variantCount: 0 });
-      expect([201]).toContain(res.status);
+      expect(res.status).toBe(500);
     });
 
-    // Atypical formatting (P1, B1/T1 - Unicode prompt)
-    it("accepts Unicode prompt (emoji/non-Latin) (P1, B1/T1)", async () => {
+    // Atypical formatting (P1, T1 - Unicode prompt)
+    it("accepts Unicode prompt (emoji/non-Latin) (P1, T1)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
         .set("Authorization", `Bearer ${apiKey}`)

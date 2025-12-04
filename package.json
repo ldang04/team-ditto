@@ -19,7 +19,8 @@
     "lint": "eslint \"{src,tests}/**/*.{ts,tsx}\"",
     "lint:report": "eslint \"{src,tests}/**/*.{ts,tsx}\" -f html -o reports/eslint-report.html",
     "analyze": "node scripts/static-analysis.js",
-    "analyze:ci": "npm run analyze"
+    "analyze:ci": "npm run analyze",
+    "test:images:real": "NODE_OPTIONS=--experimental-vm-modules RUN_REAL_IMAGE_TESTS=1 jest tests/image.api.test.ts --runInBand --verbose"
   },
   "jest-junit": {
     "outputDirectory": "reports",

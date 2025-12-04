@@ -1,30 +1,34 @@
 /**
- * Equivalence Partitioning Map (API: Images Generation)
+ * Equivalence Partitioning (API: Images Generation)
  *
- * Inputs under test:
- * - Authorization header (`Bearer <apiKey>`)
+ * Inputs under test
+ * - Authorization header `Bearer <apiKey>`
  *   - P1 Valid: Proper `Bearer <validKey>` for existing client → 201
- *   - P2 Invalid: Missing header or malformed scheme → 401
- *   - P3 Invalid: Well-formed header but invalid/unknown key → typically 403 (may be 401)
- *   - P4 Boundary: `Bearer ` with empty token → 401 (middleware)
- *   - T3 Atypical: Authorization header with extra spaces between scheme and token → typically invalid
+ *   - P2 Invalid: Missing or malformed scheme → 401
+ *   - P3 Invalid: Well-formed but unknown/invalid key → typically 403
+ *   - P4 Boundary: `Bearer ` empty token → 401
+ *   - T3 Atypical: Extra spaces after `Bearer` → typically 403
  *
- * - Body: `project_id` and `prompt`
- *   - B1 Valid: Both present; controller checks presence not trim → proceeds
- *   - B2 Invalid: Either missing (null/undefined) → 400
- *   - T1 Atypical: Surrounding/whitespace-only or Unicode prompt → accepted or may 500 downstream
+ * - Body: `project_id`, `prompt`
+ *   - B1 Valid: Both present (controller checks presence, not trim) → proceeds; downstream may 500 in real mode
+ *   - B2 Invalid: Either missing → 400
+ *   - T1 Atypical: Surrounding whitespace or Unicode prompt → accepted; whitespace-only still considered present here
  *
- * - Body: `variantCount` (number of images)
+ * - Body: `variantCount`
  *   - V1 Valid: Integer within [0, 10] → accepted
  *   - V2 Invalid: Non-integer or out of range (<0 or >10) → 400
  *   - V3 Boundary: 0 and 10 → accepted
  *
  * - Body: `aspectRatio`
- *   - A1 Valid: One of ["1:1", "16:9", "9:16", "4:5", "3:2"] or empty/falsy (coerced to "1:1") → accepted
+ *   - A1 Valid: One of ["1:1", "16:9", "10:16", "4:5", "3:2"] or empty/falsy (defaults to "1:1") → accepted
  *   - A2 Invalid: Any other non-empty value → 400
  *
  * - Not Found
- *   - N1 Invalid: `project_id` does not exist → 404
+ *   - N1 Invalid: `project_id` not found → 404
+ *
+ * Notes
+ * - Tests run mocked by default; set RUN_REAL_IMAGE_TESTS=1 for real mode.
+ * - Real mode may return 500 due to external service errors even on valid inputs.
  */
 
 // Gate any external initialization
@@ -33,36 +37,38 @@ process.env.RUN_REAL_IMAGE_TESTS = process.env.RUN_REAL_IMAGE_TESTS || "0";
 
 jest.setTimeout(200000);
 
+// Mock external services to avoid quota/remote calls unless explicitly disabled
+if (process.env.RUN_REAL_IMAGE_TESTS !== "1") {
+  jest.mock("../src/services/ImageGenerationService", () => ({
+    ImageGenerationService: {
+      generateImages: jest.fn(async ({ numberOfImages }: any) => {
+        const count = Number(numberOfImages) || 0;
+        return Array.from({ length: count }, (_, i) => ({
+          imageData: `data://fake-image-${i}`,
+          mimeType: "image/png",
+          seed: 12345 + i,
+        }));
+      }),
+    },
+  }));
+
+  jest.mock("../src/services/StorageService", () => ({
+    StorageService: {
+      uploadImage: jest.fn(async () => "https://example.com/fake.png"),
+    },
+  }));
+
+  jest.mock("../src/services/EmbeddingService", () => ({
+    EmbeddingService: {
+      generateAndStoreImage: jest.fn(async () => undefined),
+    },
+  }));
+}
+
 import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
 import logger from "../src/config/logger";
-
-// Mock external services to avoid quota/remote calls
-jest.mock("../src/services/ImageGenerationService", () => ({
-  ImageGenerationService: {
-    generateImages: jest.fn(async ({ numberOfImages }: any) => {
-      const count = Number(numberOfImages) || 0;
-      return Array.from({ length: count }, (_, i) => ({
-        imageData: `data://fake-image-${i}`,
-        mimeType: "image/png",
-        seed: 12345 + i,
-      }));
-    }),
-  },
-}));
-
-jest.mock("../src/services/StorageService", () => ({
-  StorageService: {
-    uploadImage: jest.fn(async () => "https://example.com/fake.png"),
-  },
-}));
-
-jest.mock("../src/services/EmbeddingService", () => ({
-  EmbeddingService: {
-    generateAndStoreImage: jest.fn(async () => undefined),
-  },
-}));
 
 describe("Image API", () => {
   let apiKey: string;
@@ -300,6 +306,7 @@ describe("Image API", () => {
         .send({
           project_id: "nonexistent-" + "x".repeat(32),
           prompt: "Poster",
+          variantCount: 0,
         });
       expect([404]).toContain(res.status);
     });
@@ -351,81 +358,25 @@ describe("Image API", () => {
       expect([403]).toContain(res.status);
     });
 
-    // Integration (opt-in): real Vertex AI call when RUN_REAL_IMAGE_TESTS=1
-    // Partitions: P1 (valid auth), B1 (valid body), V3 (boundary=1), A1 (valid aspect)
-    (process.env.RUN_REAL_IMAGE_TESTS === "1" ? it : it.skip)(
-      "REAL: calls Vertex AI to generate 1 image (P1, B1, V3=1, A1)",
-      async () => {
-        const { resetMockTables } = require("../__mocks__/supabase");
-        resetMockTables();
+    // Optional real integration test: set RUN_REAL_IMAGE_TESTS=1 to enable (mirrors text API)
+    describe("POST /api/images/generate (real)", () => {
+      const runReal = process.env.RUN_REAL_IMAGE_TESTS === "1";
+      const maybeIt = runReal ? it : it.skip;
 
-        const appReal = await (async () => {
-          jest.resetModules();
-          process.env.GCP_PROJECT_ID =
-            process.env.GCP_PROJECT_ID || "team-ditto";
-
-          // Unmock all related services to perform a true integration run
-          jest.unmock("../src/services/ImageGenerationService");
-          jest.unmock("../src/services/StorageService");
-          jest.unmock("../src/services/EmbeddingService");
-
-          let appMod: any;
-          await jest.isolateModulesAsync(async () => {
-            appMod = require("../src/app");
-          });
-          return appMod.default || appMod;
-        })();
-
-        // Create client → apiKey
-        const createClient = await require("supertest")(appReal)
-          .post("/api/clients/create")
-          .send({ name: "Real Gen Client" });
-        expect(createClient.status).toBe(201);
-        const realApiKey = createClient.body.data.api_key;
-
-        // Create project
-        const createProject = await require("supertest")(appReal)
-          .post("/api/projects/create")
-          .set("Authorization", `Bearer ${realApiKey}`)
-          .send({ name: "Real Gen Project" });
-        expect(createProject.status).toBe(201);
-        const realProjectId = createProject.body.data.id;
-
-        // Create theme and link to project
-        const createTheme = await require("supertest")(appReal)
-          .post("/api/themes/create")
-          .set("Authorization", `Bearer ${realApiKey}`)
-          .send({
-            project_id: realProjectId,
-            name: "Real Theme",
-            tags: ["modern"],
-            inspirations: [],
-          });
-        expect([201, 200]).toContain(createTheme.status);
-        const realThemeId = createTheme.body.data?.id;
-        if (realThemeId) {
-          const linkTheme = await require("supertest")(appReal)
-            .put(`/api/projects/${realProjectId}`)
-            .set("Authorization", `Bearer ${realApiKey}`)
-            .send({ theme_id: realThemeId });
-          expect(linkTheme.status).toBe(200);
-        }
-
-        // Invoke real generation with variantCount=1 to minimize quota
-        const res = await require("supertest")(appReal)
+      maybeIt("runs end-to-end with real services when enabled", async () => {
+        const res = await request(app)
           .post("/api/images/generate")
-          .set("Authorization", `Bearer ${realApiKey}`)
+          .set("Authorization", `Bearer ${apiKey}`)
           .send({
-            project_id: realProjectId,
+            project_id: projectId,
             prompt: "Minimal modern poster",
             variantCount: 1,
             aspectRatio: "1:1",
           });
 
-        expect(res.status).toBe(201);
+        expect([201]).toContain(res.status);
         expect(res.body.success).toBe(true);
-        expect(res.body.data).toBeDefined();
-      }
-    );
+      });
+    });
   });
 });

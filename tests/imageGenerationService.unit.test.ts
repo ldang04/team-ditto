@@ -78,6 +78,7 @@ describe("ImageGenerationService", () => {
 
       const res = await ImageGenerationService.generateImages({
         prompt: "A cat",
+        numberOfImages: 1,
       });
       expect(Array.isArray(res)).toBe(true);
       expect(res).toHaveLength(1);
@@ -99,6 +100,7 @@ describe("ImageGenerationService", () => {
 
       const res = await ImageGenerationService.generateImages({
         prompt: "  padded prompt  ",
+        numberOfImages: 1,
       });
       expect(res[0].imageData).toBe("BBB");
       expect(res[0].mimeType).toBe("image/jpeg");
@@ -132,7 +134,10 @@ describe("ImageGenerationService", () => {
     it("throws when API returns empty predictions (invalid - R2)", async () => {
       stubGenerateContent({ candidates: [] });
       await expect(
-        ImageGenerationService.generateImages({ prompt: "none" })
+        ImageGenerationService.generateImages({
+          prompt: "none",
+          numberOfImages: 1,
+        })
       ).rejects.toThrow(/No images generated/);
     });
 
@@ -140,7 +145,10 @@ describe("ImageGenerationService", () => {
     it("throws when client request errors (invalid - R3)", async () => {
       stubGenerateContentReject(new Error("network"));
       await expect(
-        ImageGenerationService.generateImages({ prompt: "err" })
+        ImageGenerationService.generateImages({
+          prompt: "err",
+          numberOfImages: 1,
+        })
       ).rejects.toThrow(/Image generation failed/);
     });
 
@@ -151,7 +159,10 @@ describe("ImageGenerationService", () => {
       });
 
       await expect(
-        ImageGenerationService.generateImages({ prompt: "malformed" })
+        ImageGenerationService.generateImages({
+          prompt: "malformed",
+          numberOfImages: 1,
+        })
       ).rejects.toThrow(/No images generated/);
     });
 

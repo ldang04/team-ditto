@@ -55,7 +55,7 @@ export class ImageGenerationService {
     params: ImageGenerationParams
   ): Promise<GeneratedImage[]> {
     try {
-      const numberOfImages = params.numberOfImages || 1;
+      const numberOfImages = params.numberOfImages || 0;
       logger.info(
         `ImageGenerationService: Generating ${numberOfImages} images with Gemini`
       );
@@ -70,7 +70,9 @@ export class ImageGenerationService {
           "4:3": "standard landscape format (4:3)",
           "3:4": "standard portrait format (3:4)",
         };
-        fullPrompt += `. Generate in ${aspectRatioHints[params.aspectRatio] || "square format"}`;
+        fullPrompt += `. Generate in ${
+          aspectRatioHints[params.aspectRatio] || "square format"
+        }`;
       }
 
       if (params.negativePrompt) {
@@ -82,7 +84,10 @@ export class ImageGenerationService {
       }
 
       logger.info(
-        `ImageGenerationService: Request with prompt: ${fullPrompt.substring(0, 100)}...`
+        `ImageGenerationService: Request with prompt: ${fullPrompt.substring(
+          0,
+          100
+        )}...`
       );
 
       const generatedImages: GeneratedImage[] = [];
@@ -108,7 +113,9 @@ export class ImageGenerationService {
           }
 
           // Add text prompt
-          contents.push(`Generate a high-quality marketing image: ${fullPrompt}`);
+          contents.push(
+            `Generate a high-quality marketing image: ${fullPrompt}`
+          );
 
           const response = await this.client.models.generateContent({
             model: this.model,
@@ -127,7 +134,9 @@ export class ImageGenerationService {
                   mimeType: part.inlineData.mimeType || "image/png",
                 });
                 logger.info(
-                  `ImageGenerationService: Generated image ${i + 1}/${numberOfImages}`
+                  `ImageGenerationService: Generated image ${
+                    i + 1
+                  }/${numberOfImages}`
                 );
                 break;
               }
@@ -135,13 +144,15 @@ export class ImageGenerationService {
           }
         } catch (imageError: any) {
           logger.error(
-            `ImageGenerationService: Failed to generate image ${i + 1}: ${imageError?.message || imageError}`
+            `ImageGenerationService: Failed to generate image ${i + 1}: ${
+              imageError?.message || imageError
+            }`
           );
           logger.error(`Full error:`, JSON.stringify(imageError, null, 2));
         }
       }
 
-      if (generatedImages.length === 0) {
+      if (generatedImages.length === 0 && numberOfImages !== 0) {
         throw new Error("No images generated from Gemini API");
       }
 
