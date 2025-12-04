@@ -1,0 +1,52 @@
+name: CD - Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+  workflow_run:
+    workflows: ["CI Implementation for Style and Static Checking and Testing"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only deploy if CI workflow succeeded (for workflow_run trigger) or on direct push/manual trigger
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto-api' }} \
+            --source . \
+            --platform managed \
+            --region ${{ secrets.CLOUD_RUN_REGION || 'us-central1' }} \
+            --allow-unauthenticated \
+            --set-env-vars NODE_ENV=production,PORT=8080 \
+            --project ${{ secrets.GCP_PROJECT_ID }}
+      
+      - name: Show deployment URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto-api' }} \
+            --platform managed \
+            --region ${{ secrets.CLOUD_RUN_REGION || 'us-central1' }} \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --format 'value(status.url)')
+          echo "Deployment successful!"
+          echo "Service URL: $SERVICE_URL"
+
