@@ -1,32 +1,24 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
-import ThemesPage from './pages/ThemesPage';
-import ProjectsPage from './pages/ProjectsPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import TextGenerationPage from './pages/TextGenerationPage';
-import ImageGenerationPage from './pages/ImageGenerationPage';
-import ValidationPage from './pages/ValidationPage';
+import CampaignsDashboard from './pages/CampaignsDashboard';
+import AssetGenerator from './pages/AssetGenerator';
 import ContentLibraryPage from './pages/ContentLibraryPage';
+import BrandSetup from './pages/BrandSetup';
 import Layout from './components/Layout';
 import { Loader2 } from 'lucide-react';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isValidating } = useAuth();
-  
-  // Show loading state while validating stored API key
+
   if (isValidating) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
-          <p className="text-gray-600">Validating authentication...</p>
-        </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     );
   }
-  
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
@@ -35,78 +27,40 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+
+        <Route
+          path="/setup"
+          element={
+            <PrivateRoute>
+              <BrandSetup />
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/"
           element={
             <PrivateRoute>
               <Layout>
-                <Dashboard />
+                <CampaignsDashboard />
               </Layout>
             </PrivateRoute>
           }
         />
+
         <Route
-          path="/themes"
+          path="/generate"
           element={
             <PrivateRoute>
               <Layout>
-                <ThemesPage />
+                <AssetGenerator />
               </Layout>
             </PrivateRoute>
           }
         />
+
         <Route
-          path="/projects"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <ProjectsPage />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/projects/:id"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <ProjectDetailPage />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/generate/text"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <TextGenerationPage />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/generate/image"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <ImageGenerationPage />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/validate"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <ValidationPage />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/content"
+          path="/library"
           element={
             <PrivateRoute>
               <Layout>
@@ -115,10 +69,11 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
 }
 
 export default App;
-

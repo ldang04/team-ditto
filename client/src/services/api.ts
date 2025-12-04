@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import type {
   ApiResponse,
-  Client,
   ClientCreateResponse,
   Project,
   Theme,

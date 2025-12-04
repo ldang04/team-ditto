@@ -90,6 +90,11 @@ export interface TextGenerationResponse {
   timestamp: string;
 }
 
+export interface InputImage {
+  data: string; // Base64 encoded image
+  mimeType: string;
+}
+
 export interface ImageGenerationRequest {
   project_id: string;
   prompt: string;
@@ -97,6 +102,8 @@ export interface ImageGenerationRequest {
   target_audience?: string;
   variantCount?: number;
   aspectRatio?: string;
+  input_images?: InputImage[]; // Optional input images for multimodal generation
+  overlay_text?: string; // Optional text to render in the generated image
 }
 
 export interface ImageGenerationVariant {
