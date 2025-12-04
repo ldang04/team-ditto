@@ -21,7 +21,7 @@ export default function LoginPage() {
     try {
       const response = await apiClient.createClient(clientName);
       if (response.success) {
-        setAuthApiKey(response.data.api_key);
+        setAuthApiKey(response.data.api_key, clientName);
         navigate('/');
       } else {
         setError('Failed to create client');

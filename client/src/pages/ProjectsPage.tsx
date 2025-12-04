@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../services/api';
-import { FolderKanban, Plus, Loader2, X, Edit2 } from 'lucide-react';
+import { FolderKanban, Plus, Loader2, X, Edit2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { Project, Theme } from '../types';
+import { analyzeWorkflowStatus } from '../utils/workflow';
 
 export default function ProjectsPage() {
   const [isCreating, setIsCreating] = useState(false);
@@ -43,6 +44,7 @@ export default function ProjectsPage() {
 
   const projects = projectsData?.data || [];
   const themes = themesData?.data || [];
+  const workflowStatus = analyzeWorkflowStatus(themes, projects);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -84,11 +86,30 @@ export default function ProjectsPage() {
             setShowForm(!showForm);
           }}
           className="btn btn-primary flex items-center gap-2"
+          disabled={themes.length === 0}
         >
           <Plus className="h-5 w-5" />
           Create Project
         </button>
       </div>
+
+      {/* Workflow Warning */}
+      {themes.length === 0 && (
+        <div className="card bg-yellow-50 border-yellow-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-yellow-900 mb-1">Create a Theme First</h3>
+              <p className="text-yellow-800 text-sm mb-2">
+                Projects must be linked to a theme for content generation to work.
+              </p>
+              <Link to="/themes" className="text-sm text-yellow-700 hover:text-yellow-900 underline">
+                Create a theme →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Form */}
       {showForm && (
@@ -162,16 +183,24 @@ export default function ProjectsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Theme
+                Theme *
               </label>
-              <select name="theme_id" className="input" defaultValue={editingProject?.theme_id || ''}>
-                <option value="">No theme</option>
+              <select name="theme_id" className="input" defaultValue={editingProject?.theme_id || ''} required>
+                <option value="">Select a theme...</option>
                 {themes.map((theme) => (
                   <option key={theme.id} value={theme.id}>
                     {theme.name}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Required for content generation. Projects without themes cannot generate content.
+              </p>
+              {themes.length === 0 && (
+                <p className="text-sm text-red-600 mt-1">
+                  No themes available. <Link to="/themes" className="underline">Create a theme first</Link>
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <button
@@ -240,12 +269,24 @@ export default function ProjectsPage() {
                       <FolderKanban className="h-6 w-6 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 truncate">
-                        {project.name}
-                      </h3>
-                      {theme && (
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                          {project.name}
+                        </h3>
+                        {project.theme_id && (
+                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" title="Ready for generation" />
+                        )}
+                        {!project.theme_id && (
+                          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" title="Needs theme" />
+                        )}
+                      </div>
+                      {theme ? (
                         <p className="text-sm text-purple-600 mt-1">
                           Theme: {theme.name}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-yellow-600 mt-1">
+                          ⚠ No theme linked
                         </p>
                       )}
                     </div>

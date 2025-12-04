@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
-import { Image as ImageIcon, Loader2, Download, TrendingUp } from 'lucide-react';
-import type { ImageGenerationRequest } from '../types';
+import { Image as ImageIcon, Loader2, Download, TrendingUp, AlertCircle } from 'lucide-react';
+import type { ImageGenerationRequest, Project, Theme } from '../types';
+import { isProjectReadyForGeneration, analyzeWorkflowStatus } from '../utils/workflow';
+import WorkflowBlock from '../components/WorkflowBlock';
 
 export default function ImageGenerationPage() {
   const [searchParams] = useSearchParams();
@@ -15,11 +17,20 @@ export default function ImageGenerationPage() {
   const [targetAudience, setTargetAudience] = useState('general');
   const [variantCount, setVariantCount] = useState(3);
   const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [stylePreferences, setStylePreferences] = useState('');
+  const [stylePreferences, setStylePreferences] = useState({
+    composition: '',
+    lighting: '',
+    avoid: '',
+  });
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
     queryFn: () => apiClient.getProjects(),
+  });
+
+  const { data: themesData } = useQuery({
+    queryKey: ['themes'],
+    queryFn: () => apiClient.getThemes(),
   });
 
   const generateMutation = useMutation({
@@ -27,10 +38,31 @@ export default function ImageGenerationPage() {
   });
 
   const projects = projectsData?.data || [];
+  const themes = themesData?.data || [];
+  
+  // Filter to only show projects ready for generation (have theme_id)
+  const readyProjects = projects.filter(p => 
+    p.theme_id && p.theme_id.trim() !== ''
+  );
+  const selectedProject = projects.find(p => p.id === projectId);
+  const projectValidation = isProjectReadyForGeneration(selectedProject);
+  const workflowStatus = analyzeWorkflowStatus(themes, projects);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId || !prompt) return;
+
+    // Validate project before submission
+    if (!projectValidation.ready) {
+      alert(`Cannot generate images: ${projectValidation.missing.join(', ')}`);
+      return;
+    }
+
+    // Build style preferences object from form fields
+    const stylePrefs: Record<string, any> = {};
+    if (stylePreferences.composition) stylePrefs.composition = stylePreferences.composition;
+    if (stylePreferences.lighting) stylePrefs.lighting = stylePreferences.lighting;
+    if (stylePreferences.avoid) stylePrefs.avoid = stylePreferences.avoid;
 
     const request: ImageGenerationRequest = {
       project_id: projectId,
@@ -38,7 +70,7 @@ export default function ImageGenerationPage() {
       target_audience: targetAudience,
       variantCount: variantCount,
       aspectRatio: aspectRatio,
-      style_preferences: stylePreferences ? JSON.parse(stylePreferences) : {},
+      style_preferences: Object.keys(stylePrefs).length > 0 ? stylePrefs : undefined,
     };
 
     generateMutation.mutate(request);
@@ -67,12 +99,70 @@ export default function ImageGenerationPage() {
 
   const aspectRatios = ['1:1', '16:9', '9:16', '4:5', '3:2'];
 
+  // Show workflow blocker if no ready projects
+  if (readyProjects.length === 0) {
+    if (!workflowStatus.hasTheme) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Image Generation</h1>
+            <p className="text-gray-600 mt-2">Generate AI-powered branded images</p>
+          </div>
+          <WorkflowBlock
+            title="Theme Required"
+            message="You need to create a brand theme before generating images. Themes provide the brand guidelines and visual style that AI uses to create on-brand images."
+            missingItem="theme"
+            actionHref="/themes"
+            actionText="Create Theme"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Image Generation</h1>
+          <p className="text-gray-600 mt-2">Generate AI-powered branded images</p>
+        </div>
+        <WorkflowBlock
+          title="Project with Theme Required"
+          message="You need to create a project linked to a theme before generating images. Projects without themes cannot generate branded images with RAG and theme analysis."
+          missingItem="project-with-theme"
+          actionHref="/projects"
+          actionText="Create Project"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Image Generation</h1>
         <p className="text-gray-600 mt-2">Generate AI-powered branded images</p>
       </div>
+
+      {/* Validation Warning */}
+      {projectId && !projectValidation.ready && (
+        <div className="card bg-red-50 border-red-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-900 mb-1">Project Not Ready</h3>
+              <p className="text-red-800 text-sm mb-2">
+                This project cannot generate images because: {projectValidation.missing.join(', ')}
+              </p>
+              <button
+                onClick={() => navigate(`/projects/${projectId}`)}
+                className="text-sm text-red-700 hover:text-red-900 underline"
+              >
+                Edit project to add theme →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form */}
@@ -90,12 +180,20 @@ export default function ImageGenerationPage() {
                   required
                 >
                   <option value="">Select a project</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
+                  {readyProjects.map((project) => {
+                    const theme = themes.find((t) => t.id === project.theme_id);
+                    return (
+                      <option key={project.id} value={project.id}>
+                        {project.name} {theme ? `(${theme.name})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                {projects.length > readyProjects.length && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Showing {readyProjects.length} of {projects.length} projects (only projects with themes can generate images)
+                  </p>
+                )}
               </div>
 
               <div>
@@ -156,22 +254,66 @@ export default function ImageGenerationPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Style Preferences (JSON, optional)
+              <div className="space-y-3 pt-2 border-t border-gray-200">
+                <label className="block text-sm font-medium text-gray-700">
+                  Style Preferences (Optional)
                 </label>
-                <textarea
-                  value={stylePreferences}
-                  onChange={(e) => setStylePreferences(e.target.value)}
-                  rows={3}
-                  className="input font-mono text-sm"
-                  placeholder='{"style": "modern", "color_scheme": "vibrant"}'
-                />
+                
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Composition</label>
+                  <input
+                    type="text"
+                    value={stylePreferences.composition}
+                    onChange={(e) => setStylePreferences({ ...stylePreferences, composition: e.target.value })}
+                    className="input text-sm"
+                    placeholder="e.g., centered, rule of thirds, symmetrical"
+                    list="composition-suggestions"
+                  />
+                  <datalist id="composition-suggestions">
+                    <option value="centered" />
+                    <option value="rule of thirds" />
+                    <option value="symmetrical" />
+                    <option value="dynamic" />
+                    <option value="minimalist" />
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Lighting</label>
+                  <input
+                    type="text"
+                    value={stylePreferences.lighting}
+                    onChange={(e) => setStylePreferences({ ...stylePreferences, lighting: e.target.value })}
+                    className="input text-sm"
+                    placeholder="e.g., natural, soft, dramatic, bright"
+                    list="lighting-suggestions"
+                  />
+                  <datalist id="lighting-suggestions">
+                    <option value="natural" />
+                    <option value="soft" />
+                    <option value="dramatic" />
+                    <option value="bright" />
+                    <option value="warm" />
+                    <option value="cool" />
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Avoid</label>
+                  <input
+                    type="text"
+                    value={stylePreferences.avoid}
+                    onChange={(e) => setStylePreferences({ ...stylePreferences, avoid: e.target.value })}
+                    className="input text-sm"
+                    placeholder="e.g., text, watermarks, blur"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Elements to avoid in the image</p>
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={generateMutation.isPending || !projectId || !prompt}
+                disabled={generateMutation.isPending || !projectId || !prompt || !projectValidation.ready}
                 className="btn btn-primary w-full flex items-center justify-center gap-2"
               >
                 {generateMutation.isPending ? (
