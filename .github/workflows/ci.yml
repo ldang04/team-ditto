@@ -1,8 +1,10 @@
 name: CI Implementation for Style and Static Checking and Testing
 
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - main  # Only run on push for main branch to avoid duplicate runs with PRs
 
 jobs:
   ci:
