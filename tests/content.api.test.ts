@@ -1,9 +1,20 @@
 /**
- * tests/content.test.ts
+ * Content API - Equivalence partitions and test mapping
  *
- * API tests for content-related endpoints.
- * Covers listing content by project for authenticated clients.
+ * Unit under test:
+ * - GET /api/contents/:project_id
+ *
+ * Partitions:
+ * - C1 (Valid): Correct API key + valid project_id -> 200 with array.
+ * - C2 (Invalid): Missing API key -> 401.
+ * - C3 (Invalid): Malformed Authorization header (not Bearer) -> 401.
+ * - C4 (Atypical): Valid auth, project has no contents -> 200 with empty array/204.
+ * - C5 (Invalid - boundary): project_id missing in route -> 404.
+ * - C6 (Boundary): unusual project_id (spaces/long) -> route still matches.
  */
+
+// Ensure GCP project is set to avoid VertexAI init errors in imported app
+process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "test-project";
 
 import request from "supertest";
 import app from "../src/app";
@@ -45,10 +56,8 @@ describe("Content API", () => {
     jest.restoreAllMocks();
   });
 
-  /**
-   * Valid case: List contents by project ID
-   */
-  it("should list contents for a valid project", async () => {
+  // Valid input (C1): Authorization Bearer key present + valid project_id
+  it("should list contents for a valid project (C1)", async () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
       .set("Authorization", `Bearer ${apiKey}`);
@@ -64,10 +73,8 @@ describe("Content API", () => {
     }
   });
 
-  /**
-   * Missing project ID in params
-   */
-  it("should fail if project_id is missing", async () => {
+  // Invalid input (C5 - boundary): route path missing project_id
+  it("should fail if project_id is missing (C5)", async () => {
     const res = await request(app)
       .get("/api/contents/")
       .set("Authorization", `Bearer ${apiKey}`);
@@ -75,10 +82,8 @@ describe("Content API", () => {
     expect(res.status).toBe(404);
   });
 
-  /**
-   * Unauthorized access (no API key)
-   */
-  it("should return 401 if no API key provided", async () => {
+  // Invalid input (C2): Missing Authorization header
+  it("should return 401 if no API key provided (C2)", async () => {
     const res = await request(app).get(`/api/contents/${projectId}`);
 
     expect(logger.error).toHaveBeenCalled();
@@ -87,14 +92,29 @@ describe("Content API", () => {
     expect(res.body.message).toBe("Missing API key");
   });
 
-  /**
-   * Atypical input: empty project
-   */
-  it("should handle atypical valid input (empty project with no contents)", async () => {
+  // Invalid input (C3): Authorization header malformed (no Bearer prefix)
+  it("should return 401 for malformed Authorization header (C3)", async () => {
+    const res = await request(app)
+      .get(`/api/contents/${projectId}`)
+      .set("Authorization", apiKey); // missing Bearer prefix
+    expect(res.status).toBe(401);
+  });
+
+  // Atypical input (C4): Valid auth; project has zero contents
+  it("should handle atypical valid input (empty project with no contents) (C4)", async () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
       .set("Authorization", `Bearer ${apiKey}`);
 
     expect([200, 204]).toContain(res.status);
+  });
+
+  // Boundary input (C6): Unusual project_id format (spaces/long) still handled
+  it("should handle boundary project_id formats (C6)", async () => {
+    const weirdId = "project with spaces and 123";
+    const res = await request(app)
+      .get(`/api/contents/${encodeURIComponent(weirdId)}`)
+      .set("Authorization", `Bearer ${apiKey}`);
+    expect([200]).toContain(res.status);
   });
 });

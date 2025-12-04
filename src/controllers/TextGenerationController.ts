@@ -2,6 +2,8 @@
  * controllers/TextGenerationController.ts
  *
  * Handles text content generation using Vertex AI Gemini.
+ * Orchestrates the ContentGenerationPipeline for enriched generation
+ * with theme analysis, RAG context, and quality scoring.
  */
 
 import { Request, Response } from "express";
@@ -12,14 +14,19 @@ import { ServiceResponse } from "../types/serviceResponse";
 import { StatusCodes } from "http-status-codes";
 import { handleServiceResponse } from "../utils/httpHandlers";
 import logger from "../config/logger";
-import { TextGenerationService } from "../services/TextGenerationService";
+import {
+  ContentGenerationPipeline,
+  VariantWithScore,
+} from "../services/ContentGenerationPipeline";
 
 export const TextGenerationController = {
   async generate(req: Request, res: Response) {
     try {
       logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
 
-      // Parse and validate request
+      // ───────────────────────────────────────────────────────────────────────
+      // Input validation
+      // ───────────────────────────────────────────────────────────────────────
       const {
         project_id,
         prompt,
@@ -55,7 +62,9 @@ export const TextGenerationController = {
         return handleServiceResponse(serviceResponse, res);
       }
 
+      // ───────────────────────────────────────────────────────────────────────
       // Fetch project and theme
+      // ───────────────────────────────────────────────────────────────────────
       const projectThemeData = await ProjectThemeService.getProjectAndTheme(
         project_id
       );
@@ -71,7 +80,10 @@ export const TextGenerationController = {
 
       const { project, theme } = projectThemeData;
 
-      const variants = await TextGenerationService.generateContent({
+      // ───────────────────────────────────────────────────────────────────────
+      // Execute generation pipeline (theme analysis, RAG, generation, scoring)
+      // ───────────────────────────────────────────────────────────────────────
+      const pipelineResult = await ContentGenerationPipeline.execute({
         project,
         theme,
         prompt,
@@ -81,17 +93,25 @@ export const TextGenerationController = {
         media_type: "text",
       });
 
+      // ───────────────────────────────────────────────────────────────────────
+      // Persist variants to database with quality scores
+      // ───────────────────────────────────────────────────────────────────────
       const savedVariants =
         await TextGenerationController.saveGeneratedContents(
-          variants,
+          pipelineResult.variants,
           project_id,
           prompt,
           "text"
         );
 
-      if (savedVariants.length === 0) {
+      if (savedVariants.length === 0 && validatedVariantCount !== 0) {
         throw Error("Failed to save any content variants to database");
       }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Build enriched response with quality metrics and analysis
+      // ───────────────────────────────────────────────────────────────────────
+      const { metadata } = pipelineResult;
 
       const serviceResponse = ServiceResponse.success(
         {
@@ -99,7 +119,48 @@ export const TextGenerationController = {
           project_id,
           media_type: "text",
           variant_count: savedVariants.length,
-          timestamp: new Date().toISOString(),
+          timestamp: metadata.generationTimestamp,
+          // Pipeline execution info
+          pipeline_stages: metadata.pipelineStages,
+          // Enriched quality metrics
+          quality: {
+            predicted: metadata.predictedQuality,
+            average: metadata.averageQuality,
+            average_composite: metadata.averageCompositeScore,
+            per_variant: savedVariants.map((v) => ({
+              quality_score: v.quality_score,
+              composite_score: v.composite_score,
+              rank: v.rank,
+            })),
+          },
+          // Content analysis per variant
+          content_analysis: savedVariants.map((v) => ({
+            content_id: v.content_id,
+            readability: v.analysis?.readability,
+            tone: v.analysis?.tone,
+            keyword_density: v.analysis?.keyword_density,
+            structure: v.analysis?.structure,
+          })),
+          // Diversity metrics (semantic = embedding-based, lexical = word overlap)
+          diversity: {
+            score: metadata.diversity.diversity_score,
+            avg_pairwise_similarity: metadata.diversity.avg_pairwise_similarity,
+            unique_variants: metadata.diversity.unique_variant_count,
+            duplicate_pairs: metadata.diversity.duplicate_pairs,
+            method: metadata.diversity.method,
+          },
+          // Theme analysis summary
+          theme_analysis: {
+            visual_mood: metadata.themeAnalysis.visual_mood,
+            dominant_styles: metadata.themeAnalysis.dominant_styles,
+            brand_strength: metadata.themeAnalysis.brand_strength,
+            color_palette: metadata.themeAnalysis.color_palette,
+          },
+          // RAG context info
+          rag_context: {
+            similar_content_count: metadata.ragContentCount,
+            avg_similarity: Math.round(metadata.ragSimilarity * 100) / 100,
+          },
         },
         "Content generated successfully",
         StatusCodes.CREATED
@@ -112,8 +173,12 @@ export const TextGenerationController = {
     }
   },
 
+  /**
+   * Persist generated variants to database with embeddings.
+   * Now also stores quality scores for each variant.
+   */
   async saveGeneratedContents(
-    variants: string[],
+    variants: VariantWithScore[],
     project_id: string,
     prompt: string,
     media_type: string
@@ -122,13 +187,13 @@ export const TextGenerationController = {
 
     // Save each variant to database and generate embeddings
     const savedVariants = [];
-    for (const variantContent of variants) {
+    for (const variant of variants) {
       try {
         const { data, error } = await ContentModel.create({
           project_id,
           media_type,
           media_url: "text",
-          text_content: variantContent,
+          text_content: variant.content,
           prompt,
         });
 
@@ -137,17 +202,23 @@ export const TextGenerationController = {
           continue;
         }
 
-        await EmbeddingService.generateAndStoreText(data.id!, variantContent);
+        await EmbeddingService.generateAndStoreText(data.id!, variant.content);
 
         savedVariants.push({
           content_id: data.id,
-          generated_content: variantContent,
+          generated_content: variant.content,
+          quality_score: variant.qualityScore,
+          composite_score: variant.compositeScore,
+          rank: variant.rank,
+          analysis: variant.analysis,
         });
 
-        logger.info(`TextGenerationController: Saved text variant`);
+        logger.info(
+          `TextGenerationController: Saved text variant (quality: ${variant.qualityScore})`
+        );
       } catch (error) {
         logger.error(
-          `TextGenerationController: Failed to save variant ${variantContent}:`,
+          `TextGenerationController: Failed to save variant:`,
           error
         );
         continue;

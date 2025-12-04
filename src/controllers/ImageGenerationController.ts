@@ -172,7 +172,7 @@ export const ImageGenerationController = {
         brandedPrompt
       );
 
-      if (savedVariants.length === 0) {
+      if (savedVariants.length === 0 && validatedVariantCount !== 0) {
         throw new Error("Failed to save any image variants");
       }
 

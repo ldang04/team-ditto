@@ -1,5 +1,59 @@
 # Testing Guide
 
+## Running Tests
+
+### Unit Tests
+
+```bash
+# Run all unit tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run specific test file
+npm test -- ragService.unit.test.ts
+```
+
+### Test Coverage
+
+Run `npm run test:coverage` to see current coverage. Target: **80%+**
+
+| Component | Key Tests |
+|-----------|-----------|
+| RAGService | BM25, RRF, MMR, hybrid search |
+| ContentGenerationPipeline | 9-stage pipeline tests |
+| ContentAnalysisService | Marketing readability, tone analysis |
+| EmbeddingService | Generation, storage, similarity |
+| Controllers | API endpoint tests |
+
+### RAG Service Tests
+
+The RAG service has comprehensive unit tests covering:
+
+**BM25 Tests:**
+- Query term matching and scoring
+- IDF (Inverse Document Frequency) weighting
+- Document length normalization
+- Edge cases (empty documents, no matches)
+
+**RRF (Reciprocal Rank Fusion) Tests:**
+- Combining BM25 + semantic rankings
+- Different ranking orders
+- K constant parameter effects
+
+**MMR (Maximal Marginal Relevance) Tests:**
+- Diverse candidate selection
+- Lambda parameter (relevance vs diversity)
+- Edge cases (empty candidates, topK=0)
+
+**Integration Tests:**
+- Full hybrid search pipeline
+- Method selection (hybrid, semantic, bm25, theme_only)
+- Metrics generation
+
+---
+
 ## Setup Test Environment
 
 ### 1. Create New API Key

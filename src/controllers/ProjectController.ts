@@ -32,7 +32,7 @@ export const ProjectController = {
       const { name } = req.body;
       const client_id = req.clientId;
 
-      if (!name) {
+      if (!name || String(name).trim().length === 0) {
         serviceResponse = ServiceResponse.failure(
           null,
           "Missing required fields",
@@ -120,7 +120,7 @@ export const ProjectController = {
       const { id } = req.params;
       const updates: Partial<Project> = req.body;
 
-      if (!id) {
+      if (!id || String(id).trim().length === 0) {
         serviceResponse = ServiceResponse.failure(
           null,
           "Missing project id",

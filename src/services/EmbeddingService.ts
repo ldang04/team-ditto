@@ -110,10 +110,15 @@ export class EmbeddingService {
         },
       });
 
-      return (
-        (response.data as any)?.predictions?.[0]?.embeddings?.values ||
-        this.generateFallbackEmbedding(text)
-      );
+      const embedding =
+        (response.data as any)?.predictions?.[0]?.embeddings?.values || [];
+
+      if (embedding.length === 0) {
+        logger.warn("No embedding returned from Vertex AI, using fallback");
+        return this.generateFallbackEmbedding(text);
+      }
+
+      return embedding;
     } catch (error) {
       logger.error("Failed to generate query embedding:", error);
       return this.generateFallbackEmbedding(text);
@@ -149,10 +154,15 @@ export class EmbeddingService {
         },
       });
 
-      return (
-        (response.data as any)?.predictions?.[0]?.imageEmbedding ||
-        this.generateFallbackEmbedding(imageBase64)
-      );
+      const embedding =
+        (response.data as any)?.predictions?.[0]?.imageEmbedding || [];
+
+      if (embedding.length === 0) {
+        logger.warn("No embedding returned from Vertex AI, using fallback");
+        return this.generateFallbackEmbedding(imageBase64);
+      }
+
+      return embedding;
     } catch (error) {
       logger.error("Failed to generate image embedding:", error);
       return this.generateFallbackEmbedding(imageBase64);

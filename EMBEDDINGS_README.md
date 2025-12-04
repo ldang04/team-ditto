@@ -16,31 +16,46 @@ Embeddings convert text into numbers (vectors) that capture semantic meaning. Si
 
 ## How We Use Embeddings
 
-### 1. Content Generation (`/api/generate`)
-- Generates marketing text with AI
-- Automatically creates embeddings for each variant
-- Stores in database for later validation
+### 1. Content Generation (`/api/text/generate`)
+- Generates marketing text with AI using a 9-stage pipeline
+- Uses **Advanced Hybrid RAG** to find relevant context from previous content
+- Controller stores content and generates embeddings after pipeline completes
+- Embeddings stored in database for later validation/RAG retrieval
 
-### 2. Content Validation (`/api/validate`)
+### 2. RAG (Retrieval-Augmented Generation)
+- Finds relevant past content to improve generation quality
+- Uses **Hybrid Search**: combines BM25 keyword matching + semantic embeddings
+- Uses **Reciprocal Rank Fusion (RRF)** to merge rankings
+- Uses **MMR (Maximal Marginal Relevance)** for diverse results
+- Returns context that makes AI generations more brand-consistent
+
+### 3. Content Validation (`/api/validate`)
 - Compares content embedding to brand embeddings
 - Calculates similarity scores
 - Returns: "85% brand consistent"
 
 ## Architecture
 
-### Before Refactoring:
+### Current Architecture:
 ```
-ComputationController (500+ lines)
-├── Content generation
-├── Embedding generation
-├── Embedding storage
-├── Similarity calculation
-├── Content validation
-└── Quality scoring
-```
+ContentGenerationPipeline (9-stage pipeline)
+├── Stage 1: Theme Analysis (parallel)
+├── Stage 2: RAG Retrieval (parallel) ← Uses RAGService
+├── Stage 3: Prompt Enhancement
+├── Stage 4: Quality Prediction
+├── Stage 5: AI Generation (Vertex AI)
+├── Stage 6: Quality Scoring
+├── Stage 7: Content Analysis (marketing metrics)
+├── Stage 8: Diversity Analysis (semantic)
+└── Stage 9: Variant Ranking
 
-### After Refactoring:
-```
+RAGService (Advanced Hybrid Search)
+├── BM25 keyword scoring (TF-IDF based)
+├── Semantic embedding search
+├── Reciprocal Rank Fusion (RRF)
+├── Maximal Marginal Relevance (MMR)
+└── Configurable parameters (RAGConfig)
+
 EmbeddingService (separate service)
 ├── Generate document embeddings
 ├── Generate query embeddings
@@ -48,10 +63,11 @@ EmbeddingService (separate service)
 ├── Calculate similarity
 └── Fallback embedding generation
 
-ComputationController (cleaner)
-├── Content generation
-├── Content validation
-└── Uses EmbeddingService
+ContentAnalysisService (marketing analysis)
+├── Marketing readability (power words, CTAs, scannability)
+├── Marketing tone (urgency, benefits, social proof, emotion)
+├── Brand keyword density
+└── Semantic diversity scoring
 ```
 
 ## Vertex AI Integration
@@ -91,18 +107,139 @@ If Vertex AI fails:
 - Based on word features, n-grams, and text stats
 - Not as good as AI, but works offline
 
+## Advanced RAG System (2025)
+
+The RAG (Retrieval-Augmented Generation) system uses state-of-the-art techniques for finding relevant context.
+
+### Hybrid Search Architecture
+
+```
+User Query: "professional tech landing page"
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   BM25 Scoring            Semantic Search
+   (keyword match)         (embedding similarity)
+        │                       │
+        └───────────┬───────────┘
+                    ▼
+          Reciprocal Rank Fusion (RRF)
+                    │
+                    ▼
+          Maximal Marginal Relevance (MMR)
+                    │
+                    ▼
+            Top-K Diverse Results
+```
+
+### BM25 (Best Matching 25)
+Probabilistic retrieval using TF-IDF weighting:
+
+```typescript
+BM25(q, d) = Σ IDF(qi) × (tf(qi, d) × (k1 + 1)) / (tf(qi, d) + k1 × (1 - b + b × |d|/avgdl))
+```
+
+**Parameters:**
+- `k1` (default: 1.5): Term frequency saturation
+- `b` (default: 0.75): Length normalization factor
+
+**Benefits:**
+- Exact keyword matching
+- Handles rare/important terms well
+- Fast computation
+
+### Reciprocal Rank Fusion (RRF)
+Combines multiple ranking methods without score normalization:
+
+```typescript
+RRF(d) = Σ 1 / (k + rank_i(d))
+```
+
+**Parameters:**
+- `k` (default: 60): Smoothing constant
+
+**Benefits:**
+- Score-agnostic fusion
+- Robust to outliers
+- Simple yet effective
+
+### Maximal Marginal Relevance (MMR)
+Balances relevance with diversity:
+
+```typescript
+MMR = argmax[λ × Sim(d, q) - (1-λ) × max(Sim(d, selected))]
+```
+
+**Parameters:**
+- `lambda` (default: 0.7): Balance between relevance (1.0) and diversity (0.0)
+
+**Benefits:**
+- Reduces redundancy
+- Ensures diverse context
+- Configurable trade-off
+
+### RAG Configuration
+
+```typescript
+interface RAGConfig {
+  candidatePoolSize: number;  // default: 20 (initial pool for MMR)
+  topK: number;               // default: 5 (final results)
+  mmrLambda: number;          // default: 0.7 (relevance vs diversity)
+  rrfK: number;               // default: 60 (RRF smoothing)
+  bm25: {
+    k1: number;               // default: 1.5 (term saturation)
+    b: number;                // default: 0.75 (length norm)
+  };
+}
+```
+
+### RAG Context Response
+
+```typescript
+interface RAGContext {
+  relevantContents: Content[];      // Retrieved content items
+  similarDescriptions: string[];    // Extracted descriptions
+  themeEmbedding: number[];        // Theme vector
+  avgSimilarity: number;           // Average similarity score
+  method: "hybrid" | "semantic" | "bm25" | "theme_only";
+  metrics?: {
+    bm25TopScore: number;          // Best BM25 score
+    semanticTopScore: number;      // Best semantic score
+    hybridTopScore: number;        // Best combined score
+    diversityScore: number;        // MMR diversity metric
+  };
+}
+```
+
+### Method Selection
+
+The RAG service automatically selects the best method:
+
+| Scenario | Method | Reason |
+|----------|--------|--------|
+| Has theme + prior content | `hybrid` | Full BM25 + semantic + RRF + MMR |
+| Has theme, no content | `theme_only` | Uses theme embedding only |
+| Semantic search fails | `bm25` | Falls back to keyword matching |
+| BM25 fails | `semantic` | Falls back to embedding similarity |
+
 ## File Structure
 
 ```
 src/
 ├── services/
-│   └── EmbeddingService.ts      # NEW: All embedding logic
+│   ├── EmbeddingService.ts           # Embedding generation & storage
+│   ├── RAGService.ts                 # Advanced hybrid RAG (BM25, RRF, MMR)
+│   ├── ContentGenerationPipeline.ts  # 9-stage generation pipeline
+│   ├── ContentAnalysisService.ts     # Marketing content analysis
+│   └── PromptEnhancementService.ts   # AI prompt optimization
 ├── controllers/
-│   └── Computation.ts            # Uses EmbeddingService
+│   ├── TextController.ts             # Text generation endpoints
+│   └── ValidationController.ts       # Content validation endpoints
 ├── models/
-│   └── EmbeddingsModel.ts        # Database operations
+│   ├── EmbeddingsModel.ts            # Embeddings database operations
+│   └── ContentModel.ts               # Content database operations
 └── types/
-    └── index.ts                  # Embedding type definition
+    └── index.ts                      # Type definitions
 ```
 
 ## Environment Setup
@@ -159,7 +296,7 @@ const queryEmbedding = await EmbeddingService.generateQueryEmbedding("find profe
 
 ```
 1. User generates content:
-   POST /api/generate
+   POST /api/text/generate
    → Creates 3 text variants
    → Each gets an embedding stored
 
@@ -215,12 +352,14 @@ const queryEmbedding = await EmbeddingService.generateQueryEmbedding("find profe
 
 ## Future Enhancements
 
-1. **Semantic Search**: Find similar content across all projects
+1. ~~**Semantic Search**: Find similar content across all projects~~ ✅ Implemented via RAGService
 2. **Content Clustering**: Group similar content automatically
 3. **Recommendation Engine**: Suggest content based on similarity
 4. **Image Embeddings**: Add CLIP for visual consistency (separate feature)
 5. **Caching**: Cache embeddings to reduce API calls
 6. **Batch Processing**: Generate multiple embeddings in one call
+7. **Cross-encoder Reranking**: Two-stage retrieval with neural rerankers
+8. **Query Expansion**: Automatic query term expansion for better recall
 
 ## Troubleshooting
 
@@ -267,6 +406,7 @@ API_KEY=your-key PROJECT_ID=your-project node test-validate.js
 - Convert text → numbers
 - Measure semantic similarity
 - Enable brand consistency checks
+- Power hybrid RAG for content generation
 
 **What embeddings DON'T do:**
 - Visual consistency
@@ -275,8 +415,10 @@ API_KEY=your-key PROJECT_ID=your-project node test-validate.js
 - Image generation
 
 **Architecture:**
+- 9-stage ContentGenerationPipeline
+- Advanced RAGService (BM25 + Semantic + RRF + MMR)
 - Separate EmbeddingService
-- Clean ComputationController
+- ContentAnalysisService for marketing metrics
 - Vertex AI with fallback
 - 768-dimensional vectors
 

@@ -31,7 +31,7 @@ export const ClientController = {
       logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
       const { name } = req.body;
 
-      if (!name) {
+      if (!name || String(name).trim().length === 0) {
         const serviceResponse = ServiceResponse.failure(
           null,
           "Missing required fields",

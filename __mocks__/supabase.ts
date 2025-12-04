@@ -26,6 +26,55 @@ const makeResponse = async (data: any = null, error: any = null) => ({
 });
 
 export const supabase = {
+  storage: {
+    async listBuckets() {
+      return makeResponse([{ id: "mock-bucket-1", name: "content-images" }]);
+    },
+    async createBucket() {
+      // Pretend bucket creation succeeds
+      return makeResponse(null, null);
+    },
+    from: (bucketName: string) => {
+      // In-memory storage map: bucket -> files
+      const storageMap: Record<string, Record<string, any>> = (supabase as any)
+        .__storageMap || ((supabase as any).__storageMap = {});
+      const bucket = (storageMap[bucketName] ||= {});
+
+      return {
+        async upload(fileName: string) {
+          bucket[fileName] = {
+            publicUrl: `https://mock.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`,
+          };
+          return makeResponse(null, null);
+        },
+        getPublicUrl(fileName: string) {
+          const file = bucket[fileName] || {
+            publicUrl: `https://mock.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`,
+          };
+          return { data: { publicUrl: file.publicUrl } } as any;
+        },
+        async remove(paths: string[]) {
+          paths.forEach((p) => delete bucket[p]);
+          return makeResponse(null, null);
+        },
+        async list(prefix: string, opts?: { search?: string }) {
+          const entries = Object.keys(bucket)
+            .filter((key) => key.startsWith(prefix))
+            .filter((key) =>
+              opts?.search ? key.includes(opts.search as string) : true
+            )
+            .map((key) => ({ name: key }));
+          return makeResponse(entries, null);
+        },
+        async createSignedUrl(filePath: string) {
+          return makeResponse(
+            { signedUrl: `https://mock.signed/${filePath}` },
+            null
+          );
+        },
+      };
+    },
+  },
   from: (table: string) => {
     const store = mockTables[table] ?? [];
 
