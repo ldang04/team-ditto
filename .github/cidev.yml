@@ -1,81 +1,76 @@
-name: Main Branch
+name: CI Implementaion for Style and static checking and testing
 
 on:
-  push:
-
-  pull_request:
-    branches:
-      - main
+  push:
+    # Triggers on push to any branch
+    branches: ['**']
+  pull_request:
+    # Triggers on PR to any branch
+    branches: ['**']
 
 jobs:
-  build-test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set Up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      # Style Checking
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Generate ESLint HTML report
-        run: npm run lint:report
-        continue-on-error: true
-
-      - name: Upload ESLint report
-        uses: actions/upload-artifact@v4
-        with:
-          name: eslint-report
-          path: reports/eslint-report.html
-
-      # Static Analysis
-      - name: Static analysis
-        run: npm run analyze:ci
-
-      # Unit Tests 
-      - name: Run unit tests with JUnit + coverage
-        run: npm run test:unit:junit
-
-      - name: Upload JUnit test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: jest-junit
-          path: reports/jest-junit.xml
-
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: coverage
-
-      - name: Upload Coverage Summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-summary
-          path: coverage
-
-      # Starts Server (for API tests which is necessary)
-      - name: Start server in background
-        run: |
-          npm run start &
-          echo "Server started in background..."
-
-      - name: Install wait-on
-        run: npm install -g wait-on
-
-      - name: Wait for server to be ready
-        run: wait-on http://localhost:3000
-
-      #  Now we run API Tests
-      - name: Run API tests
-        run: npm run api:test
+  ci:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: TypeScript type checking
+        run: npm run typecheck
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Run ESLint (style checking)
+        run: npm run lint
+      
+      - name: Run static analysis
+        run: npm run analyze
+        continue-on-error: false
+      
+      - name: Run unit tests
+        run: npm run test:unit
+      
+      - name: Start server in background
+        run: |
+          npm start &
+          echo "Waiting for server to start..."
+          sleep 10
+          # Wait for server to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:8080/api/vertex-test; do sleep 2; done' || true
+        env:
+          PORT: 8080
+          NODE_ENV: test
+      
+      - name: Run API tests
+        run: npm run api:test
+        env:
+          PORT: 8080
+      
+      - name: Stop server
+        if: always()
+        run: |
+          pkill -f "node dist/index.js" || true
+          pkill -f "ts-node-dev" || true
+      
+      - name: Upload test results and reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            reports/jest-junit.xml
+            reports/postman-report.html
+            reports/static-analysis-report.html
+            coverage/
+          retention-days: 7
