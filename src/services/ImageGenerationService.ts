@@ -1,17 +1,22 @@
 /**
  * services/ImageGenerationService.ts
  *
- * Handles image generation using Vertex AI Imagen API.
- * Supports Imagen 3 for high-quality branded image generation.
+ * Handles image generation using Vertex AI Gemini 2.5 Flash Image.
+ * Uses @google/genai SDK with Vertex AI backend.
  */
 
-import { GoogleAuth } from "google-auth-library";
+import { GoogleGenAI, Modality } from "@google/genai";
 import logger from "../config/logger";
 
 export interface GeneratedImage {
   imageData: string; // Base64 encoded image
   mimeType: string;
   seed?: number;
+}
+
+export interface InputImage {
+  data: string; // Base64 encoded image
+  mimeType: string;
 }
 
 interface ImageGenerationParams {
@@ -21,106 +26,124 @@ interface ImageGenerationParams {
   numberOfImages?: number;
   seed?: number;
   guidanceScale?: number;
+  inputImages?: InputImage[];
+  overlayText?: string;
 }
 
 export class ImageGenerationService {
-  private static auth: GoogleAuth;
-  private static projectId: string;
-  private static location: string = "us-central1";
-  private static model: string = "imagen-3.0-generate-001"; // Latest Imagen model
+  private static client: GoogleGenAI;
+  private static model: string = "gemini-2.5-flash-image"; // Gemini 2.5 Flash Image model for image generation
 
   /**
-   * Initialize the service with GCP credentials
+   * Initialize the service with GCP credentials via Vertex AI
    */
   static initialize() {
-    this.auth = new GoogleAuth({
-      scopes: "https://www.googleapis.com/auth/cloud-platform",
+    this.client = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GCP_PROJECT_ID || "",
+      location: process.env.GCP_LOCATION || "us-central1",
     });
-    this.projectId = process.env.GCP_PROJECT_ID || "";
-    logger.info("ImageGenerationService: Initialized");
+    logger.info(
+      "ImageGenerationService: Initialized with Gemini 2.5 Flash Image via Vertex AI"
+    );
   }
 
   /**
-   * Generate images using Vertex AI Imagen.
-   *
-   * Sends a request to the configured Imagen model endpoint with the
-   * provided `params` (prompt, optional negative prompt, sampling and
-   * guidance settings) and returns an array of generated images encoded in
-   * base64 along with MIME types and optional seed values.
-   *
-   * @param params - Image generation parameters including `prompt`,
-   * `negativePrompt`, `numberOfImages`, `seed`, and other optional options.
-   * @returns A Promise resolving to an array of `GeneratedImage` objects
-   * containing `imageData` (base64), `mimeType`, and optional `seed`.
-   * @throws If the Imagen API returns no predictions or if the request fails.
+   * Generate images using Vertex AI Gemini.
    */
   static async generateImages(
     params: ImageGenerationParams
   ): Promise<GeneratedImage[]> {
     try {
+      const numberOfImages = params.numberOfImages || 1;
       logger.info(
-        `ImageGenerationService: Generating ${
-          params.numberOfImages || 1
-        } images`
+        `ImageGenerationService: Generating ${numberOfImages} images with Gemini`
       );
 
-      const client = await this.auth.getClient();
-
-      // Build the Imagen model predict endpoint URL
-      const endpoint = `https://${this.location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.location}/publishers/google/models/${this.model}:predict`;
-
-      // Build the request payload for Imagen
-      const instances = [
-        {
-          prompt: params.prompt,
-        },
-      ];
-
-      // Parameters controlling sampling and model behavior
-      const requestParams: any = { sampleCount: params.numberOfImages || 1 };
-
-      // Attach optional parameters provided by the caller
-      if (params.negativePrompt)
-        requestParams.negativePrompt = params.negativePrompt;
-      if (params.aspectRatio) requestParams.aspectRatio = params.aspectRatio;
-      if (params.seed !== undefined) requestParams.seed = params.seed;
-      if (params.guidanceScale !== undefined)
-        requestParams.guidanceScale = params.guidanceScale;
-
-      const requestBody = {
-        instances,
-        parameters: requestParams,
-      };
-
-      logger.info(
-        `ImageGenerationService: Request to Imagen with prompt: ${params.prompt.substring(
-          0,
-          100
-        )}...`
-      );
-
-      const response = await client.request({
-        url: endpoint,
-        method: "POST",
-        data: requestBody,
-      });
-
-      // Parse predictions from the API response
-      const predictions = (response.data as any)?.predictions || [];
-
-      // If API returned no items, raise an error so caller can handle it
-      if (predictions.length === 0) {
-        throw new Error("No images generated from Imagen API");
+      // Build the prompt
+      let fullPrompt = params.prompt;
+      if (params.aspectRatio) {
+        const aspectRatioHints: Record<string, string> = {
+          "1:1": "square format",
+          "16:9": "wide landscape format (16:9)",
+          "9:16": "tall portrait format (9:16)",
+          "4:3": "standard landscape format (4:3)",
+          "3:4": "standard portrait format (3:4)",
+        };
+        fullPrompt += `. Generate in ${aspectRatioHints[params.aspectRatio] || "square format"}`;
       }
 
-      // Map the API predictions into our internal GeneratedImage shape
-      const generatedImages: GeneratedImage[] = predictions.map(
-        (prediction: any) => ({
-          imageData: prediction.bytesBase64Encoded,
-          mimeType: prediction.mimeType || "image/png",
-          seed: prediction.seed,
-        })
+      if (params.negativePrompt) {
+        fullPrompt += `. Avoid: ${params.negativePrompt}`;
+      }
+
+      if (params.overlayText) {
+        fullPrompt += `\n\nIMPORTANT: Render the following text prominently and clearly in the image with professional typography: "${params.overlayText}"`;
+      }
+
+      logger.info(
+        `ImageGenerationService: Request with prompt: ${fullPrompt.substring(0, 100)}...`
       );
+
+      const generatedImages: GeneratedImage[] = [];
+
+      for (let i = 0; i < numberOfImages; i++) {
+        try {
+          // Build contents array
+          const contents: any[] = [];
+
+          // Add input images if provided
+          if (params.inputImages && params.inputImages.length > 0) {
+            for (const inputImage of params.inputImages) {
+              contents.push({
+                inlineData: {
+                  data: inputImage.data,
+                  mimeType: inputImage.mimeType,
+                },
+              });
+            }
+            logger.info(
+              `ImageGenerationService: Including ${params.inputImages.length} input image(s)`
+            );
+          }
+
+          // Add text prompt
+          contents.push(`Generate a high-quality marketing image: ${fullPrompt}`);
+
+          const response = await this.client.models.generateContent({
+            model: this.model,
+            contents: contents,
+            config: {
+              responseModalities: [Modality.TEXT, Modality.IMAGE],
+            },
+          });
+
+          // Extract image from response
+          if (response.candidates && response.candidates[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData) {
+                generatedImages.push({
+                  imageData: part.inlineData.data || "",
+                  mimeType: part.inlineData.mimeType || "image/png",
+                });
+                logger.info(
+                  `ImageGenerationService: Generated image ${i + 1}/${numberOfImages}`
+                );
+                break;
+              }
+            }
+          }
+        } catch (imageError: any) {
+          logger.error(
+            `ImageGenerationService: Failed to generate image ${i + 1}: ${imageError?.message || imageError}`
+          );
+          logger.error(`Full error:`, JSON.stringify(imageError, null, 2));
+        }
+      }
+
+      if (generatedImages.length === 0) {
+        throw new Error("No images generated from Gemini API");
+      }
 
       logger.info(
         `ImageGenerationService: Successfully generated ${generatedImages.length} images`

@@ -10,7 +10,8 @@ import rankingRouter from "./routes/rankingRoutes";
 import { HealthController } from "./controllers/HealthController";
 
 const app = express();
-app.use(express.json());
+// Increase JSON body limit for base64 image uploads (default is 100kb)
+app.use(express.json({ limit: '50mb' }));
 
 // Health check route (public)
 app.get("/api/vertex-test", HealthController.testVertex);

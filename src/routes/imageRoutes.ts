@@ -1,7 +1,7 @@
 /**
  * routes/imageRoutes.ts
  *
- * Routes for image generation using Vertex AI Imagen.
+ * Routes for image generation using Vertex AI Gemini.
  * All routes are protected via API key middleware.
  */
 import { Router } from "express";
@@ -19,12 +19,39 @@ router.use(authMiddleware);
  * @param {string} req.body.prompt - The user's image generation prompt
  * @param {Object} [req.body.style_preferences={}] - Style preferences for image generation
  * @param {string} [req.body.target_audience=general] - Target audience for the content
- * @param {number} [req.body.variantCount=3] - Number of image variants to generate (1-4)
+ * @param {number} [req.body.variantCount=3] - Number of image variants to generate (1-10)
  * @param {string} [req.body.aspectRatio=1:1] - Image aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
+ * @param {Array} [req.body.input_images=[]] - Optional input images for multimodal generation
+ *        Each item: { data: string (base64), mimeType: string }
+ * @param {string} [req.body.overlay_text=""] - Optional text to render in the generated image
  * @returns {Object} Response containing the generated images with computation metrics
  * @throws {400} If project_id or prompt is missing
  * @throws {404} If project or theme not found
  * @throws {500} If image generation fails
+ *
+ * @example
+ * // Basic image generation
+ * POST /api/images/generate
+ * { "project_id": "...", "prompt": "A sunset over the ocean" }
+ *
+ * @example
+ * // Image with text overlay (marketing banner)
+ * POST /api/images/generate
+ * {
+ *   "project_id": "...",
+ *   "prompt": "Professional marketing banner background",
+ *   "overlay_text": "Summer Sale - 50% Off!"
+ * }
+ *
+ * @example
+ * // Image editing with input image
+ * POST /api/images/generate
+ * {
+ *   "project_id": "...",
+ *   "prompt": "Add the text to this background image",
+ *   "input_images": [{ "data": "base64...", "mimeType": "image/png" }],
+ *   "overlay_text": "Limited Time Offer"
+ * }
  */
 router.post("/generate", ImageGenerationController.generate);
 
