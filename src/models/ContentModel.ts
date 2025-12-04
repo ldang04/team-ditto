@@ -69,4 +69,18 @@ export const ContentModel = {
       .eq("id", contentId)
       .single();
   },
+
+  /**
+   * Retrieve multiple content records by their IDs.
+   *
+   * @param contentIds - Array of content IDs to fetch.
+   * @returns A promise resolving to an array of content records or an error.
+   *
+   */
+  async getByIds(contentIds: string[]): Promise<PostgrestResponse<Content>> {
+    return await supabase
+      .from("contents")
+      .select("*")
+      .in("id", contentIds);
+  },
 };
