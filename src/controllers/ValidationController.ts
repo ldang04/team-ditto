@@ -37,15 +37,27 @@ export const ValidationController = {
   async validate(req: Request, res: Response) {
     try {
       logger.info(`${req.method} ${req.url} ${JSON.stringify(req.body)} `);
-      const { content_id, content, project_id, media_type } = req.body;
+      const { content_id, content, project_id, media_type, image_base64 } = req.body;
 
       let serviceResponse;
 
-      // Require either a content_id OR both content + project_id for ad-hoc text.
-      if (!content_id && (!content || !project_id)) {
+      // Require either:
+      // - content_id (for stored content)
+      // - content + project_id (for ad-hoc text)
+      // - image_base64 + project_id (for ad-hoc image)
+      if (!content_id && !image_base64 && (!content || !project_id)) {
         serviceResponse = ServiceResponse.failure(
           null,
-          "Must provide either content_id OR (content + project_id)",
+          "Must provide either content_id, (content + project_id), or (image_base64 + project_id)",
+          StatusCodes.BAD_REQUEST
+        );
+        return handleServiceResponse(serviceResponse, res);
+      }
+
+      if (image_base64 && !project_id) {
+        serviceResponse = ServiceResponse.failure(
+          null,
+          "project_id is required for image validation",
           StatusCodes.BAD_REQUEST
         );
         return handleServiceResponse(serviceResponse, res);
@@ -57,7 +69,8 @@ export const ValidationController = {
           content_id,
           content,
           project_id,
-          media_type
+          media_type,
+          image_base64
         );
 
       //Get project and theme, if not exist, throw an error
@@ -75,11 +88,14 @@ export const ValidationController = {
       }
 
       // Compare the content embedding against concise brand reference
+      // Use multimodal embeddings for image_base64 to match the 1408-dim image space
+      const useMultimodal = !!image_base64;
       const brandConsistencyScore =
         await ValidationController.calculateBrandConsistency(
           contentEmbedding,
           projectThemeData.project,
-          projectThemeData.theme
+          projectThemeData.theme,
+          useMultimodal
         );
 
       const qualityScore =
@@ -132,13 +148,15 @@ export const ValidationController = {
    * @param content - optional raw content string (used when no content_id)
    * @param project_id - optional project id (used when no content_id)
    * @param media_type - optional media type hint ("text" | "image")
+   * @param image_base64 - optional base64 image for ad-hoc image validation
    * @returns An object containing { projectId, textContent, contentEmbedding, actualMediaType }
    */
   async getContentData(
     content_id: string | undefined,
     content: string | undefined,
     project_id: string | undefined,
-    media_type: string | undefined
+    media_type: string | undefined,
+    image_base64: string | undefined
   ) {
     logger.info(`ValidationController: get content data`);
 
@@ -147,7 +165,17 @@ export const ValidationController = {
     let contentEmbedding: number[];
     let actualMediaType: string = media_type || "text";
 
-    if (content_id) {
+    if (image_base64) {
+      // Ad-hoc image validation using multimodal embeddings
+      logger.info("ValidationController: Processing ad-hoc image validation");
+      projectId = project_id!;
+      actualMediaType = "image";
+      textContent = "[Image content]"; // Placeholder for insights generation
+
+      // Generate image embedding using multimodal model (1408 dims)
+      // This will be compared against brand text embeddings in the same space
+      contentEmbedding = await EmbeddingService.generateImageEmbedding(image_base64);
+    } else if (content_id) {
       // Validate existing content
       const { data: existingContent, error } = await ContentModel.getById(
         content_id
@@ -156,30 +184,44 @@ export const ValidationController = {
         throw new Error("Content not found");
       }
 
-      textContent = existingContent.text_content;
       actualMediaType = existingContent.media_type;
       projectId = existingContent.project_id;
 
-      // Get or generate embedding
-      const { data: embeddingData } = await EmbeddingsModel.getByContentId(
-        content_id
-      );
-      if (embeddingData && embeddingData.length > 0) {
-        contentEmbedding = embeddingData[0].embedding;
-      } else if (media_type === "image") {
-        contentEmbedding = await EmbeddingService.generateAndStoreImage(
-          content_id,
-          textContent
-        );
-        textContent = existingContent.prompt;
+      // For images, use the enhanced_prompt for brand comparison (contains brand keywords)
+      // Fall back to original prompt if enhanced_prompt not available
+      // For text, use the text_content directly
+      if (actualMediaType === "image") {
+        textContent = existingContent.enhanced_prompt || existingContent.prompt || "";
       } else {
-        contentEmbedding = await EmbeddingService.generateAndStoreText(
-          content_id,
+        textContent = existingContent.text_content;
+      }
+
+      // Get or generate embedding for brand consistency comparison
+      // For images: use text embedding of the ENHANCED_PROMPT for brand comparison
+      //   - Enhanced prompt contains brand keywords (Mofusand, Smiski, playful, etc)
+      //   - This compares what the image was generated from vs brand guidelines
+      // For text: use the text embedding directly
+      if (actualMediaType === "image") {
+        // Generate text embedding from the prompt for brand comparison
+        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(
           textContent
         );
+      } else {
+        // For text content, try to get existing embedding or generate new one
+        const { data: embeddingData } = await EmbeddingsModel.getByContentId(
+          content_id
+        );
+        if (embeddingData && embeddingData.length > 0) {
+          contentEmbedding = embeddingData[0].embedding;
+        } else {
+          contentEmbedding = await EmbeddingService.generateAndStoreText(
+            content_id,
+            textContent
+          );
+        }
       }
     } else {
-      // Validate new content
+      // Validate new text content
       textContent = content!;
       projectId = project_id!;
       contentEmbedding = await EmbeddingService.generateDocumentEmbedding(
@@ -197,23 +239,37 @@ export const ValidationController = {
    * @param contentEmbedding - Embedding vector for the content being validated
    * @param project - Project object (expects `description`, `goals`, `customer_type`)
    * @param theme - Theme object (expects `name`, `tags`, `inspirations`)
+   * @param useMultimodal - If true, use multimodal embeddings (for image comparison)
    * @returns A rounded integer percentage [0-100] representing average similarity
    */
   async calculateBrandConsistency(
     contentEmbedding: number[],
     project: Project,
-    theme: Theme
+    theme: Theme,
+    useMultimodal: boolean = false
   ): Promise<number> {
     // Build concise reference texts that capture the brand's language and
-    // stylistic signals. These short strings are what we embed and compare
-    // against the content embedding.
-    const brandTexts = [
-      `${theme.name}: ${theme.tags?.join(", ") || ""}`,
-      `Inspired by: ${theme.inspirations?.join(", ") || ""}`,
-      `${project.description || ""}`,
-      `Goals: ${project.goals || ""}`,
-      `Target: ${project.customer_type || ""}`,
-    ].filter(Boolean);
+    // stylistic signals. Only include texts that have meaningful content.
+    const brandTexts: string[] = [];
+
+    // Theme-based signals (these are the strongest brand indicators)
+    if (theme.name && theme.tags?.length) {
+      brandTexts.push(`${theme.name}: ${theme.tags.join(", ")}`);
+    }
+    if (theme.inspirations?.length) {
+      brandTexts.push(`Inspired by: ${theme.inspirations.join(", ")}`);
+    }
+
+    // Project-based signals (only add if they have actual content)
+    if (project.description?.trim()) {
+      brandTexts.push(project.description);
+    }
+    if (project.goals?.trim()) {
+      brandTexts.push(`Goals: ${project.goals}`);
+    }
+    if (project.customer_type?.trim()) {
+      brandTexts.push(`Target audience: ${project.customer_type}`);
+    }
 
     if (brandTexts.length === 0) {
       // No brand signals available — return minimal alignment.
@@ -221,8 +277,14 @@ export const ValidationController = {
     }
 
     // Generate embeddings for each brand reference in parallel.
+    // Use multimodal embeddings (1408 dims) when comparing against images,
+    // otherwise use text-embedding-004 (768 dims) for text comparison.
     const brandEmbeddings = await Promise.all(
-      brandTexts.map((text) => EmbeddingService.generateDocumentEmbedding(text))
+      brandTexts.map((text) =>
+        useMultimodal
+          ? EmbeddingService.generateMultimodalTextEmbedding(text)
+          : EmbeddingService.generateDocumentEmbedding(text)
+      )
     );
 
     // Compute cosine similarity between the content and each brand embedding.
@@ -230,12 +292,44 @@ export const ValidationController = {
       EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
     );
 
-    // Average the similarity scores and convert to percentage.
+    logger.info(`ValidationController: Brand consistency - similarity scores: ${JSON.stringify(similarityScores.map(s => s.toFixed(4)))}, useMultimodal: ${useMultimodal}`);
+
+    // Average the similarity scores and scale to intuitive percentage.
     const avgSimilarity =
       similarityScores.reduce((sum, score) => sum + score, 0) /
       similarityScores.length;
 
-    return Math.round(avgSimilarity * 100);
+    // Use different scaling parameters for multimodal vs text embeddings.
+    // Cross-modal (image-to-text) similarity produces much lower raw values:
+    // - Multimodal: 0.0-0.3 range (image-to-text comparison)
+    // - Text-only: 0.3-0.8 range (text-to-text comparison)
+    let baseline: number;
+    let ceiling: number;
+
+    if (useMultimodal) {
+      // Multimodal embeddings produce lower similarity for cross-modal comparison
+      // - 0.0-0.05: completely unrelated
+      // - 0.05-0.15: weakly related
+      // - 0.15-0.25: moderately related
+      // - 0.25+: strongly related
+      baseline = 0.02;
+      ceiling = 0.25;
+    } else {
+      // Text-embedding-004 produces higher similarity for text-to-text
+      // - 0.3-0.4: unrelated content
+      // - 0.5-0.6: weakly related
+      // - 0.6-0.7: moderately related
+      // - 0.7-0.8: strongly related
+      baseline = 0.4;
+      ceiling = 0.75;
+    }
+
+    const scaledScore = Math.max(
+      0,
+      Math.min(100, ((avgSimilarity - baseline) / (ceiling - baseline)) * 100)
+    );
+
+    return Math.round(scaledScore);
   },
 
   /**

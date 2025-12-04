@@ -290,7 +290,43 @@ textArea.addEventListener('input', (e) => {
 
 ## Related Endpoints
 
-- `POST /api/generate` - Generate AI content variants
+- `POST /api/text/generate` - Generate AI content variants (uses RAG for context)
+- `POST /api/images/generate` - Generate AI images
 - `POST /api/rank` - Rank multiple content variants (coming soon)
 - `POST /api/audit` - Comprehensive content audit (coming soon)
+
+## Integration with Content Generation
+
+When you generate content using `/api/text/generate`, the system:
+
+1. **Uses RAG** to find relevant past content (BM25 + semantic search)
+2. **Enhances the prompt** with brand context and examples
+3. **Generates variants** using AI with RAG context
+4. **Analyzes content** for readability and marketing effectiveness
+5. **Creates embeddings** for each variant
+6. **Stores everything** in the database
+
+You can then validate the generated content:
+
+```javascript
+// Generate content with RAG-enhanced context
+const generated = await fetch('/api/text/generate', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer YOUR_API_KEY', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ project_id: 'your-project-id', prompt: 'Create landing page copy' })
+});
+
+// Validate each generated variant
+const { variants } = await generated.json();
+for (const variant of variants) {
+  const validation = await fetch('/api/validate', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer YOUR_API_KEY', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content_id: variant.content_id })
+  });
+  console.log(await validation.json());
+}
+```
+
+The validation checks if the RAG-enhanced generated content actually aligns with your brand guidelines.
 

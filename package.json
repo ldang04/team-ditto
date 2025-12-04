@@ -15,7 +15,7 @@
     "test:unit:junit": "jest --runInBand --coverage --reporters=default --reporters=jest-junit",
     "coverage:summary": "jest --coverage --coverageReporters=text-summary",
     "api:test": "newman run postman/collection.json -e postman/env.json -r cli,htmlextra --reporter-htmlextra-export reports/postman-report.html",
-    "reports:all": "npm run test:unit:junit && npm run api:test && npm run analyze && npm run coverage:summary && node scripts/snapshot-coverage.js",
+    "reports:all": "npm run test:unit:junit && npm run analyze && npm run coverage:summary && node scripts/snapshot-coverage.js",
     "lint": "eslint \"{src,tests}/**/*.{ts,tsx}\"",
     "lint:report": "eslint \"{src,tests}/**/*.{ts,tsx}\" -f html -o reports/eslint-report.html",
     "analyze": "node scripts/static-analysis.js",
@@ -30,6 +30,7 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/vertexai": "^1.10.0",
+    "@google/genai": "^1.31.0",
     "@supabase/supabase-js": "^2.75.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",

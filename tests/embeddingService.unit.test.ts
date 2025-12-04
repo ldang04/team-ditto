@@ -39,6 +39,11 @@
  * - generateImageEmbedding:
  *   - padded base64: T3
  *   - client error / malformed response: R3 / R4
+ * - generateMultimodalTextEmbedding:
+ *   - normal input: R1/T4
+ *   - empty API response: R2
+ *   - client error: R3
+ *   - undefined input: T1
  * - generateAndStoreText / generateAndStoreImage:
  *   - successful store: S1
  *   - store rejects: S2 (embedding still returned)
@@ -231,7 +236,7 @@ describe("EmbeddingService", () => {
     it("falls back when client errors (invalid)", async () => {
       stubClientReject(new Error("img err"));
       const result = await EmbeddingService.generateImageEmbedding("base64");
-      expect(result.length).toBe(768);
+      expect(result.length).toBe(1408);
     });
 
     // Invalid (R4): malformed API response (missing imageEmbedding) -> fallback
@@ -241,7 +246,7 @@ describe("EmbeddingService", () => {
         "malformed-img"
       );
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(768);
+      expect(result.length).toBe(1408);
     });
 
     // Invalid: missing/undefined input for image embedding (T1)
@@ -345,7 +350,7 @@ describe("EmbeddingService", () => {
         "base64-or-invalid"
       );
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(768);
+      expect(result.length).toBe(1408);
       expect(EmbeddingsModel.create).toHaveBeenCalledWith(
         expect.objectContaining({ media_type: "image" })
       );
@@ -364,7 +369,9 @@ describe("EmbeddingService", () => {
       const imgEmbedding = [4, 4, 4];
       stubClientResponse({ predictions: [{ imageEmbedding: imgEmbedding }] });
 
-      (EmbeddingsModel.create as jest.Mock).mockRejectedValue(new Error("store fail"));
+      (EmbeddingsModel.create as jest.Mock).mockRejectedValue(
+        new Error("store fail")
+      );
 
       const result = await EmbeddingService.generateAndStoreImage(
         "img-store-fail",
@@ -380,14 +387,57 @@ describe("EmbeddingService", () => {
     });
   });
 
+  describe("generateMultimodalTextEmbedding", () => {
+    // Valid: API returns multimodal text embedding
+    it("returns API multimodal text embedding when available (valid)", async () => {
+      const mmEmbedding = new Array(1408).fill(0).map((_, i) => i % 5);
+      stubClientResponse({ predictions: [{ textEmbedding: mmEmbedding }] });
+
+      const result = await EmbeddingService.generateMultimodalTextEmbedding(
+        "some text"
+      );
+      expect(result).toBe(mmEmbedding);
+    });
+
+    // Invalid: API returns empty -> fallback to 1408 dims
+    it("falls back when API returns empty multimodal embedding (invalid)", async () => {
+      stubClientResponse({ predictions: [{ textEmbedding: [] }] });
+
+      const result = await EmbeddingService.generateMultimodalTextEmbedding(
+        "empty"
+      );
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1408);
+    });
+
+    // Invalid: client error -> fallback
+    it("falls back on client error (invalid)", async () => {
+      stubClientReject(new Error("mm err"));
+      const result = await EmbeddingService.generateMultimodalTextEmbedding(
+        "q"
+      );
+      expect(result.length).toBe(1408);
+    });
+
+    // Invalid: undefined input -> rejects
+    it("rejects when multimodal text input is undefined (invalid - T1)", async () => {
+      stubClientResponse({ predictions: [{ textEmbedding: [] }] });
+      await expect(
+        EmbeddingService.generateMultimodalTextEmbedding(undefined as any)
+      ).rejects.toThrow();
+    });
+  });
+
   describe("generateFallbackEmbedding (F1)", () => {
     // Valid: fallback returns deterministic result for same input (determinism)
     it("produces deterministic, normalized 768-dim vectors (valid - F1)", () => {
       const a = (EmbeddingService as any).generateFallbackEmbedding(
-        "Hello World"
+        "Hello World",
+        768
       );
       const b = (EmbeddingService as any).generateFallbackEmbedding(
-        "Hello World"
+        "Hello World",
+        768
       );
       expect(a).toHaveLength(768);
       expect(b).toHaveLength(768);
@@ -401,8 +451,8 @@ describe("EmbeddingService", () => {
 
     // Valid: different inputs produce different embeddings (uniqueness)
     it("produces different vectors for different inputs (valid)", () => {
-      const a = (EmbeddingService as any).generateFallbackEmbedding("one");
-      const b = (EmbeddingService as any).generateFallbackEmbedding("two");
+      const a = (EmbeddingService as any).generateFallbackEmbedding("one", 768);
+      const b = (EmbeddingService as any).generateFallbackEmbedding("two", 768);
       // They should not be identical arrays
       expect(a).not.toEqual(b);
     });
