@@ -137,6 +137,7 @@ export interface ValidationRequest {
   content?: string;
   project_id?: string;
   media_type?: string;
+  image_base64?: string;
 }
 
 export interface ValidationIssue {

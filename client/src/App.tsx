@@ -5,7 +5,6 @@ import CampaignsDashboard from './pages/CampaignsDashboard';
 import LinkedInWriter from './pages/LinkedInWriter';
 import BrandSetup from './pages/BrandSetup';
 import ProjectDetailPage from './pages/ProjectDetailPage';
-import ValidationPage from './pages/ValidationPage';
 import Layout from './components/Layout';
 import { Loader2 } from 'lucide-react';
 
@@ -55,17 +54,6 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <LinkedInWriter />
-              </Layout>
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/validate"
-          element={
-            <PrivateRoute>
-              <Layout>
-                <ValidationPage />
               </Layout>
             </PrivateRoute>
           }
