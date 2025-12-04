@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
-import { Library, FileText, Image as ImageIcon, Search, Filter, Loader2 } from 'lucide-react';
+import { Library, FileText, Image as ImageIcon, Search, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { Content, Project } from '../types';
+import type { Content } from '../types';
 
 export default function ContentLibraryPage() {
   const [searchParams] = useSearchParams();

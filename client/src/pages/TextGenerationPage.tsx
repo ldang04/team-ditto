@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import { Sparkles, Loader2, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
-import type { TextGenerationRequest, Project, Theme } from '../types';
+import type { TextGenerationRequest } from '../types';
 import { isProjectReadyForGeneration, analyzeWorkflowStatus } from '../utils/workflow';
 import WorkflowBlock from '../components/WorkflowBlock';
 

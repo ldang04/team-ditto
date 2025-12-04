@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import { Image as ImageIcon, Loader2, Download, TrendingUp, AlertCircle } from 'lucide-react';
-import type { ImageGenerationRequest, Project, Theme } from '../types';
+import type { ImageGenerationRequest } from '../types';
 import { isProjectReadyForGeneration, analyzeWorkflowStatus } from '../utils/workflow';
 import WorkflowBlock from '../components/WorkflowBlock';
 

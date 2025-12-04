@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Palette, FolderKanban, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { Palette, FolderKanban, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import type { Theme, Project } from '../types';

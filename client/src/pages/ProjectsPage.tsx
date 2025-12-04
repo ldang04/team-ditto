@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../services/api';
 import { FolderKanban, Plus, Loader2, X, Edit2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { Project, Theme } from '../types';
+import type { Project } from '../types';
 import { analyzeWorkflowStatus } from '../utils/workflow';
 
 export default function ProjectsPage() {
@@ -44,7 +44,9 @@ export default function ProjectsPage() {
 
   const projects = projectsData?.data || [];
   const themes = themesData?.data || [];
-  const workflowStatus = analyzeWorkflowStatus(themes, projects);
+  // Workflow status for display
+  const _workflowStatus = analyzeWorkflowStatus(themes, projects);
+  void _workflowStatus; // Suppress unused warning
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -274,10 +276,14 @@ export default function ProjectsPage() {
                           {project.name}
                         </h3>
                         {project.theme_id && (
-                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" title="Ready for generation" />
+                          <span title="Ready for generation">
+                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          </span>
                         )}
                         {!project.theme_id && (
-                          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" title="Needs theme" />
+                          <span title="Needs theme">
+                            <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                          </span>
                         )}
                       </div>
                       {theme ? (

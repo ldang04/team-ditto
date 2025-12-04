@@ -71,8 +71,9 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">BrandForge Studio</h1>
-          <p className="text-gray-600">AI-Powered Marketing Content Creation</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">CopyForge</h1>
+          <p className="text-gray-600">AI Marketing Campaign Builder</p>
+          <p className="text-xs text-gray-400 mt-1">Powered by Ditto Content API</p>
         </div>
 
         <div className="card">
@@ -85,13 +86,13 @@ export default function LoginPage() {
               <form onSubmit={handleCreateClient} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Client Name
+                    Organization Name
                   </label>
                   <input
                     type="text"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Enter your company name"
+                    placeholder="Enter your organization name"
                     className="input"
                     required
                   />
