@@ -214,7 +214,7 @@ export default function Dashboard() {
               return (
                 <Link
                   key={project.id}
-                  to={`/projects/${project.id}`}
+                  to={`/campaigns/${project.id}`}
                   className="card hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start gap-3 mb-3">

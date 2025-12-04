@@ -25,7 +25,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-white">
       {/* Top Nav */}
       <header className="border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
@@ -66,7 +66,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
+      <main className="max-w-6xl mx-auto px-6 py-10">
         {children}
       </main>
     </div>

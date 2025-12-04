@@ -1,8 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
-import { ArrowLeft, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Image as ImageIcon, Loader2, Send } from 'lucide-react';
 import type { Project, Content } from '../types';
+import LinkedInPreview from '../components/LinkedInPreview';
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,25 @@ export default function ProjectDetailPage() {
   const project = projectData as Project | undefined;
   const contents = contentData?.data || [];
 
+  // Helper function to identify overlay text items
+  // Overlay text is short text content created right before an image
+  const isOverlayText = (textContent: Content, imageContents: Content[]): boolean => {
+    const OVERLAY_TEXT_THRESHOLD_MS = 10 * 1000; // 10 seconds
+    const OVERLAY_TEXT_MAX_WORDS = 15; // Overlay text is typically short
+    
+    const textTime = textContent.created_at ? new Date(textContent.created_at).getTime() : 0;
+    const textWordCount = (textContent.text_content || '').trim().split(/\s+/).length;
+    
+    // Check if this text was created right before an image (likely overlay text)
+    return imageContents.some(imageContent => {
+      if (!imageContent.created_at) return false;
+      const imageTime = new Date(imageContent.created_at).getTime();
+      const timeDiff = imageTime - textTime;
+      // Overlay text is created BEFORE the image, within a short time window
+      return timeDiff > 0 && timeDiff <= OVERLAY_TEXT_THRESHOLD_MS && textWordCount <= OVERLAY_TEXT_MAX_WORDS;
+    });
+  };
+
   if (projectLoading) {
     return (
       <div className="card text-center py-12">
@@ -37,22 +57,120 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="card text-center py-12">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Project not found</h3>
-        <Link to="/projects" className="text-primary-600 hover:text-primary-700">
-          ← Back to Projects
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Campaign not found</h3>
+        <Link to="/" className="text-primary-600 hover:text-primary-700">
+          ← Back to Campaigns
         </Link>
       </div>
     );
   }
 
-  const textContents = contents.filter((c: Content) => c.media_type === 'text');
-  const imageContents = contents.filter((c: Content) => c.media_type === 'image');
+  // Group content by time windows (content created within 5 minutes of each other)
+  const groupContentByTimeWindow = (contents: Content[]): Array<{ text: Content; image?: Content; createdAt: string }> => {
+    const TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+    
+    if (contents.length === 0) return [];
+
+    // Separate text and images
+    const textContents = contents.filter(c => c.media_type === 'text');
+    const imageContents = contents.filter(c => c.media_type === 'image');
+    
+    // Filter out overlay text items - these are short text items created right before an image
+    // Overlay text is generated separately and should not appear as a standalone preview
+    const filteredTextContents = textContents.filter(textContent => 
+      !isOverlayText(textContent, imageContents)
+    );
+    
+    const groups: Array<{ text: Content; image?: Content; createdAt: string }> = [];
+    const usedImageIds = new Set<string>();
+
+    // First, try to pair each text with a matching image
+    // Use filteredTextContents to exclude overlay text items
+    for (const textContent of filteredTextContents) {
+      const textTime = textContent.created_at ? new Date(textContent.created_at).getTime() : 0;
+      
+      // Find the closest matching image within time window
+      let bestMatch: Content | null = null;
+      let bestTimeDiff = Infinity;
+      
+      for (const imageContent of imageContents) {
+        if (usedImageIds.has(imageContent.id!)) continue;
+        if (!imageContent.created_at) continue;
+        
+        const imageTime = new Date(imageContent.created_at).getTime();
+        const timeDiff = Math.abs(imageTime - textTime);
+        
+        if (timeDiff <= TIME_WINDOW_MS && timeDiff < bestTimeDiff) {
+          bestMatch = imageContent;
+          bestTimeDiff = timeDiff;
+        }
+      }
+      
+      if (bestMatch) {
+        // Found a match - pair them together
+        usedImageIds.add(bestMatch.id!);
+        groups.push({
+          text: textContent,
+          image: {
+            ...bestMatch,
+            text_content: '', // Clear image's text_content - it's overlay/prompt text, not caption
+          },
+          createdAt: textContent.created_at || bestMatch.created_at || '',
+        });
+      } else {
+        // No matching image - standalone text post
+        groups.push({
+          text: textContent,
+          createdAt: textContent.created_at || '',
+        });
+      }
+    }
+    
+    // Add any remaining standalone images
+    for (const imageContent of imageContents) {
+      if (!usedImageIds.has(imageContent.id!)) {
+        groups.push({
+          text: {
+            id: `placeholder-${imageContent.id}`,
+            project_id: imageContent.project_id,
+            media_type: 'text',
+            media_url: 'text',
+            text_content: '', // Empty - image-only post
+          },
+          image: {
+            ...imageContent,
+            text_content: '', // Clear image's text_content
+          },
+          createdAt: imageContent.created_at || '',
+        });
+      }
+    }
+
+    // Sort groups by creation time (newest first)
+    return groups.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  };
+
+  // Separate and filter content for counting and grouping
+  const allTextContents = contents.filter((c: Content) => c.media_type === 'text');
+  const allImageContents = contents.filter((c: Content) => c.media_type === 'image');
+  
+  // Filter out overlay text items for accurate counts
+  const textContents = allTextContents.filter(textContent => 
+    !isOverlayText(textContent, allImageContents)
+  );
+  const imageContents = allImageContents;
+  
+  const groupedContent = groupContentByTimeWindow(contents);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          to="/projects"
+          to="/"
           className="text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -86,21 +204,14 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
           <div className="space-y-3">
             <Link
-              to={`/generate/text?project_id=${project.id}`}
-              className="flex items-center gap-3 p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+              to={`/create?campaign_id=${project.id}`}
+              className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
             >
-              <FileText className="h-5 w-5 text-green-600" />
-              <span className="font-medium text-gray-900">Generate Text Content</span>
-            </Link>
-            <Link
-              to={`/generate/image?project_id=${project.id}`}
-              className="flex items-center gap-3 p-3 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors"
-            >
-              <ImageIcon className="h-5 w-5 text-pink-600" />
-              <span className="font-medium text-gray-900">Generate Images</span>
+              <Send className="h-5 w-5 text-blue-600" />
+              <span className="font-medium text-gray-900">Create LinkedIn Post</span>
             </Link>
           </div>
         </div>
@@ -137,99 +248,47 @@ export default function ProjectDetailPage() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Content</p>
-              <p className="text-2xl font-bold text-gray-900">{contents.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{textContents.length + imageContents.length}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Content */}
+      {/* LinkedIn Drafts */}
       {contentLoading ? (
         <div className="card text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto" />
         </div>
-      ) : contents.length > 0 ? (
+      ) : groupedContent.length > 0 ? (
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Content</h2>
-          <div className="space-y-4">
-            {contents.slice(0, 10).map((content: Content) => (
-              <div key={content.id} className="card">
-                <div className="flex items-start gap-4">
-                  <div className={`p-2 rounded-lg ${
-                    content.media_type === 'text' ? 'bg-green-100' : 'bg-pink-100'
-                  }`}>
-                    {content.media_type === 'text' ? (
-                      <FileText className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5 text-pink-600" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-gray-900 capitalize">
-                        {content.media_type}
-                      </span>
-                      {content.created_at && (
-                        <span className="text-xs text-gray-500">
-                          {new Date(content.created_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    {content.media_type === 'text' ? (
-                      <p className="text-sm text-gray-700 line-clamp-3">
-                        {content.text_content}
-                      </p>
-                    ) : (
-                      <div>
-                        {content.media_url && (
-                          <img
-                            src={content.media_url}
-                            alt="Generated content"
-                            className="max-w-xs rounded-lg mb-2"
-                          />
-                        )}
-                        {content.text_content && (
-                          <p className="text-xs text-gray-600">{content.text_content}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">LinkedIn Drafts</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+            {groupedContent.map((group, index) => (
+              <LinkedInPreview
+                key={group.text.id || `group-${index}`}
+                textContent={group.text}
+                imageContent={group.image}
+                createdAt={group.createdAt}
+              />
             ))}
           </div>
-          {contents.length > 10 && (
-            <Link
-              to={`/content?project_id=${project.id}`}
-              className="block text-center text-primary-600 hover:text-primary-700 mt-4"
-            >
-              View all content →
-            </Link>
-          )}
         </div>
       ) : (
         <div className="card text-center py-12">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No content yet
+            No drafts yet
           </h3>
           <p className="text-gray-600 mb-6">
-            Start generating content for this project
+            Start creating LinkedIn posts for this campaign
           </p>
-          <div className="flex gap-3 justify-center">
-            <Link
-              to={`/generate/text?project_id=${project.id}`}
-              className="btn btn-primary"
-            >
-              Generate Text
-            </Link>
-            <Link
-              to={`/generate/image?project_id=${project.id}`}
-              className="btn btn-secondary"
-            >
-              Generate Images
-            </Link>
-          </div>
+          <Link
+            to={`/create?campaign_id=${project.id}`}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Send className="h-5 w-5" />
+            Create LinkedIn Post
+          </Link>
         </div>
       )}
     </div>

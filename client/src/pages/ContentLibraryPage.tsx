@@ -184,7 +184,7 @@ export default function ContentLibraryPage() {
                       )}
                       {content._projectName && (
                         <Link
-                          to={`/projects/${content._projectId}`}
+                          to={`/campaigns/${content._projectId}`}
                           className="text-xs text-primary-600 hover:text-primary-700"
                         >
                           {content._projectName}
@@ -231,10 +231,10 @@ export default function ContentLibraryPage() {
                   </Link>
                   {content._projectId && (
                     <Link
-                      to={`/projects/${content._projectId}`}
+                      to={`/campaigns/${content._projectId}`}
                       className="btn btn-secondary text-sm flex-1 text-center"
                     >
-                      View Project
+                      View Campaign
                     </Link>
                   )}
                 </div>

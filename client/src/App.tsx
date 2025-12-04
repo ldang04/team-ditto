@@ -72,7 +72,7 @@ function App() {
         />
 
         <Route
-          path="/projects/:id"
+          path="/campaigns/:id"
           element={
             <PrivateRoute>
               <Layout>

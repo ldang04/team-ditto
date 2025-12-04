@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import {
@@ -31,8 +32,11 @@ const LINKEDIN_CHAR_LIMIT = 3000;
 const LINKEDIN_OPTIMAL_LENGTH = 1300; // Optimal for engagement
 
 export default function LinkedInWriter() {
+  const [searchParams] = useSearchParams();
+  const campaignIdParam = searchParams.get('campaign_id');
+  
   const [topic, setTopic] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState(campaignIdParam || '');
   const [generatedContent, setGeneratedContent] = useState('');
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -48,6 +52,13 @@ export default function LinkedInWriter() {
       setDrafts(JSON.parse(saved));
     }
   }, []);
+
+  // Pre-fill campaign from URL parameter
+  useEffect(() => {
+    if (campaignIdParam) {
+      setSelectedProjectId(campaignIdParam);
+    }
+  }, [campaignIdParam]);
 
   // Save drafts to localStorage
   const saveDrafts = (newDrafts: Draft[]) => {
@@ -274,22 +285,23 @@ export default function LinkedInWriter() {
             />
           </div>
 
-          {/* Brand Selection */}
+          {/* Campaign Selection - Mandatory */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Brand Voice
+              Campaign <span className="text-red-500">*</span>
             </label>
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
+              required
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Select a brand...</option>
+              <option value="">Select a campaign...</option>
               {projects.map((project) => {
                 const theme = themes.find(t => t.id === project.theme_id);
                 return (
                   <option key={project.id} value={project.id}>
-                    {theme?.name || project.name}
+                    {project.name} {theme?.name ? `(${theme.name})` : ''}
                   </option>
                 );
               })}
@@ -327,6 +339,7 @@ export default function LinkedInWriter() {
             onClick={() => generatePost.mutate()}
             disabled={!topic.trim() || !selectedProjectId || generatePost.isPending}
             className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            title={!selectedProjectId ? 'Please select a campaign first' : ''}
           >
             {generatePost.isPending ? (
               <>

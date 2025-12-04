@@ -155,7 +155,7 @@ export default function CampaignsDashboard() {
             return (
               <Link
                 key={campaign.id}
-                to={`/projects/${campaign.id}`}
+                to={`/campaigns/${campaign.id}`}
                 className="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center justify-between">
