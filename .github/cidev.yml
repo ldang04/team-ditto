@@ -9,19 +9,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Set Up Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      # ----- Style Checking (ESLint) -----
+      # Style Checking
       - name: Run ESLint
         run: npm run lint
 
@@ -35,11 +35,11 @@ jobs:
           name: eslint-report
           path: reports/eslint-report.html
 
-      # ----- Static Analysis -----
+      # Static Analysis
       - name: Static analysis
         run: npm run analyze:ci
 
-      # ----- Unit Tests -----
+      # Unit Tests 
       - name: Run unit tests with JUnit + coverage
         run: npm run test:unit:junit
 
@@ -61,7 +61,7 @@ jobs:
           name: coverage-summary
           path: coverage
 
-      # ----- Start Server (for API tests) -----
+      # Starts Server (for API tests which is necessary)
       - name: Start server in background
         run: |
           npm run start &
@@ -73,6 +73,6 @@ jobs:
       - name: Wait for server to be ready
         run: wait-on http://localhost:3000
 
-      # ----- Run API Tests -----
+      #  Now we run API Tests
       - name: Run API tests
         run: npm run api:test
