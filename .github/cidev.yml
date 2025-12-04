@@ -3,7 +3,7 @@ name: Main Branch
 on:
   push:
     branches:
-    # THis allows for CI to be triggered on all branches
+    # This allows for CI to be triggered on all branches
       - '**'
 
   pull_request:
