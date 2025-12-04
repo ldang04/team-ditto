@@ -99,30 +99,36 @@ export default function CampaignWorkspace() {
             }
           }
         } else {
-          // For images, show them with the computation metrics
+          // For images, show them and call validation API for proper brand consistency scores
           const imageResponse = response.data as ImageGenerationResponse;
           const variants = imageResponse.variants;
-          const metrics = imageResponse.computation_metrics;
-          const newContent: GeneratedContent[] = variants.map((v) => {
-            const brandScore = metrics?.rag_similarity ? metrics.rag_similarity * 100 : 75;
-            const qualityScore = metrics?.predicted_quality || 80;
-            const overallScore = (brandScore * 0.6) + (qualityScore * 0.4);
-            return {
-              content_id: v.content_id,
-              text: v.image_url,
-              validation: {
-                brand_consistency_score: brandScore,
-                quality_score: qualityScore,
-                overall_score: overallScore,
-                passes_validation: overallScore >= 70,
-                strengths: overallScore >= 70 ? ['AI-enhanced with brand context'] : [],
-                issues: overallScore < 70 ? [{ severity: 'minor' as const, category: 'brand', description: 'Low brand alignment', suggestion: 'Try adding more brand-specific keywords' }] : [],
-                recommendations: [],
-                summary: 'Generated with RAG-enhanced prompts',
-              },
-            };
-          });
+          const newContent: GeneratedContent[] = variants.map((v) => ({
+            content_id: v.content_id,
+            text: v.image_url,
+            isValidating: true,
+          }));
           setGeneratedContent(newContent);
+
+          // Auto-validate each image using the validation API
+          for (let i = 0; i < newContent.length; i++) {
+            try {
+              const validationResponse = await apiClient.validateContent({
+                content_id: newContent[i].content_id,
+              });
+              if (validationResponse.success) {
+                setGeneratedContent(prev => prev.map((c, idx) =>
+                  idx === i
+                    ? { ...c, validation: validationResponse.data.validation, isValidating: false }
+                    : c
+                ));
+              }
+            } catch (error) {
+              // Fallback to showing without validation if API fails
+              setGeneratedContent(prev => prev.map((c, idx) =>
+                idx === i ? { ...c, isValidating: false } : c
+              ));
+            }
+          }
         }
       }
     },

@@ -75,7 +75,7 @@ export default function AssetGenerator() {
               id: `copy-${i}`,
               content: variant.generated_content,
               contentId: variant.content_id,
-              score: Math.round((validation.data?.validation?.brand_consistency_score || 0.7) * 100),
+              score: Math.round(validation.data?.validation?.brand_consistency_score || 70),
             });
           }
         } catch (e) {
@@ -115,11 +115,14 @@ export default function AssetGenerator() {
 
           const variant = response.data?.variants?.[0];
           if (variant) {
-            const metrics = response.data?.computation_metrics;
+            // Call validation API to get proper brand consistency score
+            const validation = await apiClient.validateContent({
+              content_id: variant.content_id,
+            });
             variants.push({
               id: `img-${i}`,
               imageUrl: variant.image_url,
-              score: Math.round((metrics?.rag_similarity || 0.7) * 100),
+              score: Math.round(validation.data?.validation?.brand_consistency_score || 70),
             });
           }
         } catch (e) {
