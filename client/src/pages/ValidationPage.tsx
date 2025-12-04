@@ -1,53 +1,85 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, Sparkles } from 'lucide-react';
-import type { ValidationRequest } from '../types';
+import type { ValidationRequest, Content } from '../types';
+import LinkedInPreview from '../components/LinkedInPreview';
 
 export default function ValidationPage() {
-  const [searchParams] = useSearchParams();
-  const contentIdParam = searchParams.get('content_id');
-
-  const [validationMode, setValidationMode] = useState<'content_id' | 'text'>('content_id');
-  const [contentId, setContentId] = useState(contentIdParam || '');
   const [contentText, setContentText] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
     queryFn: () => apiClient.getProjects(),
   });
 
-  const validateMutation = useMutation({
+  const { data: contentData } = useQuery({
+    queryKey: ['validation-content', projectId],
+    queryFn: () => apiClient.getContent(projectId),
+    enabled: !!projectId,
+  });
+
+  const validateTextMutation = useMutation({
     mutationFn: (request: ValidationRequest) => apiClient.validateContent(request),
   });
 
+  const validateImageMutation = useMutation({
+    mutationFn: (contentId: string) =>
+      apiClient.validateContent({ content_id: contentId }),
+  });
+
   const projects = projectsData?.data || [];
+  const allContents: Content[] = (contentData?.data as Content[]) || [];
+  const imageContents = allContents.filter((c) => c.media_type === 'image');
+  const recentImages = [...imageContents]
+    .sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    })
+    .slice(0, 9);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const selectedImage = recentImages.find((img) => img.id === selectedImageId) || null;
 
-    let request: ValidationRequest;
-    if (validationMode === 'content_id') {
-      if (!contentId) return;
-      request = { content_id: contentId };
-    } else {
-      if (!contentText || !projectId) return;
-      request = { content: contentText, project_id: projectId };
-    }
+  const hasInput = contentText.trim().length > 0 || !!selectedImage;
 
-    validateMutation.mutate(request);
+  const previewTextContent: Content = {
+    id: 'preview-text',
+    project_id: projectId || '',
+    media_type: 'text',
+    media_url: 'text',
+    text_content: hasInput
+      ? contentText
+      : 'A preview will appear once inputted.',
+    created_at: new Date().toISOString(),
   };
 
-  useEffect(() => {
-    if (contentIdParam) {
-      setContentId(contentIdParam);
-      setValidationMode('content_id');
-    }
-  }, [contentIdParam]);
+  const previewImageContent: Content | undefined = selectedImage
+    ? { ...selectedImage }
+    : undefined;
 
-  const result = validateMutation.data?.data?.validation;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!projectId && !contentText.trim() && !selectedImageId) return;
+
+    if (contentText.trim() && projectId) {
+      const request: ValidationRequest = {
+        content: contentText,
+        project_id: projectId,
+      };
+      validateTextMutation.mutate(request);
+    }
+
+    if (selectedImageId) {
+      validateImageMutation.mutate(selectedImageId);
+    }
+  };
+
+  const textResult = validateTextMutation.data?.data?.validation;
+  const imageResult = validateImageMutation.data?.data?.validation;
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
@@ -65,100 +97,96 @@ export default function ValidationPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Content Validation</h1>
-        <p className="text-gray-600 mt-2">Validate content against brand guidelines</p>
+        <p className="text-gray-600 mt-2">
+          Validate draft text and image against your brand guidelines.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form */}
+        {/* Input Form */}
         <div className="lg:col-span-1">
           <div className="card sticky top-8">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Validation Mode
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setValidationMode('content_id')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    validationMode === 'content_id'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  By Content ID
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setValidationMode('text')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    validationMode === 'text'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  By Text
-                </button>
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
-              {validationMode === 'content_id' ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Content ID *
-                  </label>
-                  <input
-                    type="text"
-                    value={contentId}
-                    onChange={(e) => setContentId(e.target.value)}
-                    className="input"
-                    placeholder="Enter content ID"
-                    required
-                  />
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Project *
-                    </label>
-                    <select
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                      className="input"
-                      required
-                    >
-                      <option value="">Select a project</option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Campaign *
+                </label>
+                <select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className="input"
+                  required
+                >
+                  <option value="">Select a campaign</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Content Text
+                </label>
+                <textarea
+                  value={contentText}
+                  onChange={(e) => setContentText(e.target.value)}
+                  rows={6}
+                  className="input"
+                  placeholder="Paste or type the content to validate..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image (most recent from campaign)
+                </label>
+                {!projectId && (
+                  <p className="text-xs text-gray-400">
+                    Select a campaign to see recent images.
+                  </p>
+                )}
+                {projectId && recentImages.length === 0 && (
+                  <p className="text-xs text-gray-400">
+                    No images found yet for this campaign.
+                  </p>
+                )}
+                {projectId && recentImages.length > 0 && (
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {recentImages.map((img) => (
+                      <button
+                        key={img.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedImageId(
+                            img.id === selectedImageId ? null : (img.id as string),
+                          )
+                        }
+                        className={`relative border rounded-md overflow-hidden focus:outline-none ${
+                          img.id === selectedImageId
+                            ? 'ring-2 ring-blue-500 border-blue-500'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <img
+                          src={img.media_url}
+                          alt="Recent campaign image"
+                          className="w-full h-20 object-cover"
+                        />
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content Text *
-                    </label>
-                    <textarea
-                      value={contentText}
-                      onChange={(e) => setContentText(e.target.value)}
-                      rows={6}
-                      className="input"
-                      placeholder="Paste or type the content to validate..."
-                      required
-                    />
-                  </div>
-                </>
-              )}
+                )}
+              </div>
 
               <button
                 type="submit"
-                disabled={validateMutation.isPending}
+                disabled={validateTextMutation.isPending || validateImageMutation.isPending}
                 className="btn btn-primary w-full flex items-center justify-center gap-2"
               >
-                {validateMutation.isPending ? (
+                {validateTextMutation.isPending || validateImageMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Validating...
@@ -174,156 +202,290 @@ export default function ValidationPage() {
           </div>
         </div>
 
-        {/* Results */}
+        {/* Preview & Results */}
         <div className="lg:col-span-2">
-          {validateMutation.isPending && (
-            <div className="card text-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
-              <p className="text-gray-600">Analyzing content against brand guidelines...</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            {/* LinkedIn-style Preview */}
+            <div>
+              <LinkedInPreview
+                textContent={previewTextContent}
+                imageContent={previewImageContent}
+                createdAt={new Date().toISOString()}
+                showHeaderActions={false}
+              />
             </div>
-          )}
 
-          {validateMutation.isError && (
-            <div className="card bg-red-50 border-red-200">
-              <p className="text-red-700">
-                {validateMutation.error instanceof Error
-                  ? validateMutation.error.message
-                  : 'Failed to validate content'}
-              </p>
-            </div>
-          )}
+            {/* Validation Results */}
+            <div className="space-y-4 text-sm">
+              {(validateTextMutation.isPending || validateImageMutation.isPending) && (
+                <div className="card text-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary-600 mx-auto mb-1" />
+                  <p className="text-xs text-gray-600">Analyzing content against brand guidelines...</p>
+                </div>
+              )}
 
-          {validateMutation.isSuccess && result && (
-            <div className="space-y-6">
-              {/* Overall Score */}
-              <div className="card">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Validation Results</h2>
-                    <p className="text-gray-600 mt-1">{result.summary}</p>
-                  </div>
-                  <div
-                    className={`${getScoreBgColor(result.overall_score)} px-6 py-4 rounded-lg text-center`}
-                  >
-                    <p className="text-sm text-gray-600 mb-1">Overall Score</p>
-                    <p className={`text-4xl font-bold ${getScoreColor(result.overall_score)}`}>
-                      {result.overall_score}
-                    </p>
-                    {result.passes_validation ? (
-                      <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mt-2" />
-                    ) : (
-                      <XCircle className="h-6 w-6 text-red-600 mx-auto mt-2" />
+              {validateTextMutation.isError && (
+                <div className="card bg-red-50 border-red-200 text-xs">
+                  <p className="text-red-700 leading-snug">
+                    {validateTextMutation.error instanceof Error
+                      ? validateTextMutation.error.message
+                      : 'Failed to validate content'}
+                  </p>
+                </div>
+              )}
+
+              {/* Text Validation Results */}
+              {validateTextMutation.isSuccess && textResult && (
+                <div className="space-y-4 text-xs">
+                  {/* Overall Score */}
+                  <div className="card">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-sm font-semibold text-gray-900">Text Validation</h2>
+                        <p className="text-xs text-gray-600 mt-1">{textResult.summary}</p>
+                      </div>
+                      <div
+                        className={`${getScoreBgColor(
+                          textResult.overall_score,
+                        )} px-3 py-2 rounded-lg text-center`}
+                      >
+                        <p className="text-[11px] text-gray-600 mb-0.5">Overall</p>
+                        <p className={`text-xl font-bold ${getScoreColor(textResult.overall_score)}`}>
+                          {textResult.overall_score}
+                        </p>
+                        {textResult.passes_validation ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto mt-1" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600 mx-auto mt-1" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Score Breakdown */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-[11px] text-gray-600 mb-0.5">Brand Consistency</p>
+                        <p
+                          className={`text-lg font-semibold ${getScoreColor(
+                            textResult.brand_consistency_score,
+                          )}`}
+                        >
+                          {textResult.brand_consistency_score}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-[11px] text-gray-600 mb-0.5">Quality</p>
+                        <p className={`text-lg font-semibold ${getScoreColor(textResult.quality_score)}`}>
+                          {textResult.quality_score}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Strengths */}
+                    {textResult.strengths && textResult.strengths.length > 0 && (
+                      <div className="mb-4">
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          Strengths
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {textResult.strengths.map((strength: string, idx: number) => (
+                            <li key={idx} className="flex items-start gap-1.5 text-gray-700">
+                              <span className="text-green-600 mt-0.5">✓</span>
+                              <span className="leading-snug">{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Issues */}
+                    {textResult.issues && textResult.issues.length > 0 && (
+                      <div className="mb-4">
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          Issues
+                        </h3>
+                        <div className="space-y-2">
+                          {textResult.issues.map((issue, idx: number) => (
+                            <div
+                              key={idx}
+                              className={`p-3 rounded-lg border ${
+                                issue.severity === 'major'
+                                  ? 'bg-red-50 border-red-200'
+                                  : 'bg-yellow-50 border-yellow-200'
+                              }`}
+                            >
+                              <div className="flex items-start gap-1.5 mb-1.5">
+                                <span
+                                  className={`font-medium ${
+                                    issue.severity === 'major' ? 'text-red-700' : 'text-yellow-700'
+                                  }`}
+                                >
+                                  {issue.severity === 'major' ? 'Major' : 'Minor'} - {issue.category}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-700 mb-1">{issue.description}</p>
+                              <p className="text-[11px] text-gray-600">
+                                <span className="font-medium">Suggestion:</span> {issue.suggestion}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
+                    {textResult.recommendations && textResult.recommendations.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary-600" />
+                          Recommendations
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {textResult.recommendations.map((rec: string, idx: number) => (
+                            <li key={idx} className="flex items-start gap-1.5 text-gray-700">
+                              <span className="text-primary-600 mt-0.5">•</span>
+                              <span className="leading-snug">{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 </div>
+              )}
 
-                {/* Score Breakdown */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Brand Consistency</p>
-                    <p className={`text-2xl font-bold ${getScoreColor(result.brand_consistency_score)}`}>
-                      {result.brand_consistency_score}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Quality Score</p>
-                    <p className={`text-2xl font-bold ${getScoreColor(result.quality_score)}`}>
-                      {result.quality_score}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Strengths */}
-                {result.strengths && result.strengths.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      Strengths
-                    </h3>
-                    <ul className="space-y-2">
-                      {result.strengths.map((strength, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-gray-700">
-                          <span className="text-green-600 mt-1">✓</span>
-                          <span>{strength}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Issues */}
-                {result.issues && result.issues.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                      Issues
-                    </h3>
-                    <div className="space-y-3">
-                      {result.issues.map((issue, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-4 rounded-lg border ${
-                            issue.severity === 'major'
-                              ? 'bg-red-50 border-red-200'
-                              : 'bg-yellow-50 border-yellow-200'
-                          }`}
+              {/* Image Validation Results */}
+              {validateImageMutation.isSuccess && imageResult && (
+                <div className="space-y-4 text-xs">
+                  <div className="card">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-sm font-semibold text-gray-900">Image Validation</h2>
+                        <p className="text-xs text-gray-600 mt-1">{imageResult.summary}</p>
+                      </div>
+                      <div
+                        className={`${getScoreBgColor(
+                          imageResult.overall_score,
+                        )} px-3 py-2 rounded-lg text-center`}
+                      >
+                        <p className="text-[11px] text-gray-600 mb-0.5">Overall</p>
+                        <p
+                          className={`text-xl font-bold ${getScoreColor(
+                            imageResult.overall_score,
+                          )}`}
                         >
-                          <div className="flex items-start gap-2 mb-2">
-                            <span
-                              className={`font-medium ${
-                                issue.severity === 'major' ? 'text-red-700' : 'text-yellow-700'
+                          {imageResult.overall_score}
+                        </p>
+                        {imageResult.passes_validation ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto mt-1" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600 mx-auto mt-1" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-[11px] text-gray-600 mb-0.5">Brand Consistency</p>
+                        <p
+                          className={`text-2xl font-bold ${getScoreColor(
+                            imageResult.brand_consistency_score,
+                          )}`}
+                        >
+                          {imageResult.brand_consistency_score}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-[11px] text-gray-600 mb-0.5">Quality</p>
+                        <p
+                          className={`text-2xl font-bold ${getScoreColor(
+                            imageResult.quality_score,
+                          )}`}
+                        >
+                          {imageResult.quality_score}
+                        </p>
+                      </div>
+                    </div>
+
+                    {imageResult.strengths && imageResult.strengths.length > 0 && (
+                      <div className="mb-4">
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          Strengths
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {imageResult.strengths.map((strength: string, idx: number) => (
+                            <li key={idx} className="flex items-start gap-2 text-gray-700">
+                              <span className="text-green-600 mt-0.5">✓</span>
+                              <span className="leading-snug">{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {imageResult.issues && imageResult.issues.length > 0 && (
+                      <div className="mb-4">
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          Issues
+                        </h3>
+                        <div className="space-y-2">
+                          {imageResult.issues.map((issue, idx: number) => (
+                            <div
+                              key={idx}
+                              className={`p-3 rounded-lg border ${
+                                issue.severity === 'major'
+                                  ? 'bg-red-50 border-red-200'
+                                  : 'bg-yellow-50 border-yellow-200'
                               }`}
                             >
-                              {issue.severity === 'major' ? 'Major' : 'Minor'} - {issue.category}
-                            </span>
-                          </div>
-                          <p className="text-gray-700 mb-2">{issue.description}</p>
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">Suggestion:</span> {issue.suggestion}
-                          </p>
+                              <div className="flex items-start gap-1.5 mb-1.5">
+                                <span
+                                  className={`font-medium ${
+                                    issue.severity === 'major' ? 'text-red-700' : 'text-yellow-700'
+                                  }`}
+                                >
+                                  {issue.severity === 'major' ? 'Major' : 'Minor'} - {issue.category}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-700 mb-1">{issue.description}</p>
+                              <p className="text-[11px] text-gray-600">
+                                <span className="font-medium">Suggestion:</span> {issue.suggestion}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    )}
 
-                {/* Recommendations */}
-                {result.recommendations && result.recommendations.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary-600" />
-                      Recommendations
-                    </h3>
-                    <ul className="space-y-2">
-                      {result.recommendations.map((rec, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-gray-700">
-                          <span className="text-primary-600 mt-1">•</span>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {imageResult.recommendations && imageResult.recommendations.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary-600" />
+                          Recommendations
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {imageResult.recommendations.map((rec: string, idx: number) => (
+                            <li key={idx} className="flex items-start gap-1.5 text-gray-700">
+                              <span className="text-primary-600 mt-0.5">•</span>
+                              <span className="leading-snug">{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {!validateMutation.isPending &&
-            !validateMutation.isSuccess &&
-            !validateMutation.isError && (
-              <div className="card text-center py-12">
-                <CheckCircle2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Ready to Validate
-                </h3>
-                <p className="text-gray-600">
-                  Enter a content ID or paste text to validate against brand guidelines
-                </p>
-              </div>
-            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
 

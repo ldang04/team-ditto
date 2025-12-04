@@ -8,9 +8,16 @@ interface LinkedInPreviewProps {
   imageContent?: Content;
   createdAt?: string;
   onRegenerate?: () => Promise<void> | void;
+  showHeaderActions?: boolean;
 }
 
-export default function LinkedInPreview({ textContent, imageContent, createdAt, onRegenerate }: LinkedInPreviewProps) {
+export default function LinkedInPreview({
+  textContent,
+  imageContent,
+  createdAt,
+  onRegenerate,
+  showHeaderActions = true,
+}: LinkedInPreviewProps) {
   const displayDate = createdAt 
     ? new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'Just now';
@@ -107,34 +114,36 @@ export default function LinkedInPreview({ textContent, imageContent, createdAt, 
     <div className={containerClasses}>
       <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
         <h3 className="font-medium text-gray-900 text-sm">LinkedIn Preview</h3>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRegenerate}
-            disabled={!onRegenerate || isRegenerating}
-            className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
-          >
-            {isRegenerating ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3 w-3" />
-            )}
-            <span>Regenerate</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleValidate}
-            disabled={isValidating}
-            className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
-          >
-            {isValidating ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-            )}
-            <span>Validate</span>
-          </button>
-        </div>
+        {showHeaderActions && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={!onRegenerate || isRegenerating}
+              className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
+            >
+              {isRegenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              <span>Regenerate</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleValidate}
+              disabled={isValidating}
+              className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
+            >
+              {isValidating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+              )}
+              <span>Validate</span>
+            </button>
+          </div>
+        )}
       </div>
       <div className="p-4">
         {/* Validation panel - above LinkedIn post content */}

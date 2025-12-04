@@ -13,7 +13,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Home', href: '/' },
     { name: 'Create', href: '/create' },
-    { name: 'Library', href: '/library' },
+    { name: 'Validate', href: '/validate' },
   ];
 
   const isActive = (path: string) => {
