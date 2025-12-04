@@ -29,26 +29,26 @@ import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
 import logger from "../src/config/logger";
 
-// Mock external services to avoid quota/remote calls unless explicitly disabled
-if (!process.env.RUN_REAL_TEXT_TESTS) {
-  jest.mock("../src/services/TextGenerationService", () => ({
-    TextGenerationService: {
-      generateContent: jest.fn(async ({ variantCount }: any) => {
-        const count = Number(variantCount) || 0;
-        return Array.from(
-          { length: count },
-          (_, i) => `Mock text variant ${i + 1}`
-        );
-      }),
-    },
-  }));
+// Mock external services to avoid quota/remote calls
+// Note: Mocks must be at the top level (not inside conditionals) for Jest's hoisting to work.
+// Jest hoists jest.mock() calls, so conditionals prevent proper mock application.
+jest.mock("../src/services/TextGenerationService", () => ({
+  TextGenerationService: {
+    generateContent: jest.fn(async ({ variantCount }: any) => {
+      const count = Number(variantCount) || 0;
+      return Array.from(
+        { length: count },
+        (_, i) => `Mock text variant ${i + 1}`
+      );
+    }),
+  },
+}));
 
-  jest.mock("../src/services/EmbeddingService", () => ({
-    EmbeddingService: {
-      generateAndStoreText: jest.fn(async () => undefined),
-    },
-  }));
-}
+jest.mock("../src/services/EmbeddingService", () => ({
+  EmbeddingService: {
+    generateAndStoreText: jest.fn(async () => undefined),
+  },
+}));
 
 describe("Text API", () => {
   let apiKey: string;
@@ -93,7 +93,8 @@ describe("Text API", () => {
 
   beforeEach(() => {
     jest.spyOn(logger, "info").mockImplementation();
-    jest.spyOn(logger, "error").mockImplementation();
+    // Don't mock error so we can see what's actually failing
+    // jest.spyOn(logger, "error").mockImplementation();
   });
 
   afterEach(() => {
