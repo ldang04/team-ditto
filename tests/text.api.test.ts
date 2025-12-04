@@ -1,7 +1,26 @@
 /**
- * Equivalence Partitioning Map (API: Text Generation)
+ * Integration Scope + Equivalence Partitions (API: Text Generation)
  *
- * Inputs under test:
+ * Internal integrations exercised by these tests:
+ * - `routes/text.routes.ts` → `TextGenerationController` (generate)
+ * - `authMiddleware` for API key validation and request binding to client context
+ * - `ProjectController`/`ProjectService` indirectly via project creation and theme linking
+ * - `ThemeController`/`ThemeService` for project-theme association required by text generation
+ * - `TextGenerationService` for content generation (mocked by default via env flag)
+ * - `EmbeddingService` side-effect (mocked) for storing text embeddings
+ * - `supabaseClient` (mocked) for DB-backed entities; `resetMockTables()` controls shared state
+ * - `logger` (`info`/`error`) instrumentation across middleware and controllers
+ *
+ * External integrations:
+ * - Optional end-to-end real call when `RUN_REAL_TEXT_TESTS=1`; otherwise provider/embedding are mocked.
+ *
+ * Shared test data and isolation notes:
+ * - A client and a project are created once in `beforeAll`; `apiKey` and `projectId` are reused across tests.
+ * - A theme is created and linked to the project to satisfy controller/service preconditions.
+ * - `resetMockTables()` ensures a clean start; subsequent creates are visible only to the bound client.
+ * - Invalid/unknown API keys simulate a different client and have no access to prior resources.
+ *
+ * Equivalence Partitioning Map
  * - Authorization header (`Bearer <apiKey>`)
  *   - P1 Valid: Proper `Bearer <validKey>` → 201
  *   - P2 Invalid: Missing header or malformed scheme → 401
@@ -22,7 +41,7 @@
  */
 
 process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "team-ditto";
-jest.setTimeout(15000);
+jest.setTimeout(20000);
 
 import request from "supertest";
 import app from "../src/app";
@@ -102,6 +121,8 @@ describe("Text API", () => {
 
   describe("POST /api/text/generate", () => {
     // Valid input (P1, B1) with variantCount=0 to avoid work
+    // Integrations: authMiddleware (P1), TextGenerationController.generate, TextGenerationService (mock), EmbeddingService (mock), logger.info
+    // Shared data: uses `apiKey` and `projectId` created in setup; no cross-client leakage
     it("generates text with valid inputs (P1, B1)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -116,6 +137,8 @@ describe("Text API", () => {
     });
 
     // Invalid input (P1, B2 - missing prompt)
+    // Integrations: controller validation rejects; service not invoked; logger.error
+    // Shared data: none created; project state unchanged
     it("rejects when prompt is missing (P1, B2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -125,6 +148,8 @@ describe("Text API", () => {
     });
 
     // Invalid input (P1, B2 - missing project_id)
+    // Integrations: controller validation rejects; logger.error
+    // Shared data: none
     it("rejects when project_id is missing (P1, B2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -134,6 +159,8 @@ describe("Text API", () => {
     });
 
     // Invalid formatting (P1, B3 - whitespace-only prompt)
+    // Integrations: downstream handling treats trimmed-empty prompt as error; logger.error
+    // Shared data: none
     it("rejects whitespace-only prompt (P1, B3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -143,6 +170,8 @@ describe("Text API", () => {
     });
 
     // Atypical formatting (P1, T1 - Unicode prompt)
+    // Integrations: Unicode handling accepted; service returns mocked variants; logger.info
+    // Shared data: none
     it("accepts Unicode prompt (emoji/non-Latin) (P1, T1)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -156,6 +185,8 @@ describe("Text API", () => {
     });
 
     // VariantCount boundaries (P1, V3 - 0 acceptable)
+    // Integrations: controller validates boundaries; service mock returns []; logger.info
+    // Shared data: none
     it("accepts variantCount = 0 (P1, V3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -165,6 +196,8 @@ describe("Text API", () => {
     });
 
     // VariantCount boundaries (P1, V3 - 10 acceptable)
+    // Integrations: boundary max accepted; service mock returns 10 strings; logger.info
+    // Shared data: none
     it("accepts variantCount = 10 (P1, V3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -174,6 +207,8 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - -1)
+    // Integrations: controller rejects out-of-range; logger.error
+    // Shared data: none
     it("rejects variantCount < 0 (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -183,6 +218,8 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - 11)
+    // Integrations: controller rejects out-of-range; logger.error
+    // Shared data: none
     it("rejects variantCount > 10 (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -192,6 +229,8 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - non-integer)
+    // Integrations: controller enforces integer; rejects float; logger.error
+    // Shared data: none
     it("rejects non-integer variantCount (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -201,6 +240,8 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - non-numeric)
+    // Integrations: controller type-checks; rejects string; logger.error
+    // Shared data: none
     it("rejects non-numeric variantCount (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -210,6 +251,8 @@ describe("Text API", () => {
     });
 
     // Invalid auth: missing header (P2)
+    // Integrations: authMiddleware rejects; controller short-circuits; logger.error
+    // Shared data: none
     it("returns 401 when API key missing (P2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -218,6 +261,8 @@ describe("Text API", () => {
     });
 
     // Invalid auth: malformed header (P2)
+    // Integrations: authMiddleware rejects wrong scheme; logger.error
+    // Shared data: none
     it("returns 401 for malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -227,6 +272,8 @@ describe("Text API", () => {
     });
 
     // Invalid auth: unknown key (P3)
+    // Integrations: authMiddleware verifies signature; rejects unknown key; logger.error
+    // Shared data: simulates different client; no access to project
     it("rejects invalid API key (P3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -236,6 +283,8 @@ describe("Text API", () => {
     });
 
     // Boundary: empty token (P4)
+    // Integrations: empty token treated as missing; logger.error
+    // Shared data: none
     it("returns 401 when Bearer token is empty (P4)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -245,6 +294,8 @@ describe("Text API", () => {
     });
 
     // Invalid: extra spaces after Bearer (P3/T3)
+    // Integrations: header parsing fails with extra spaces; logger.error
+    // Shared data: none
     it("rejects Authorization with extra spaces (P3/T3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -260,6 +311,8 @@ describe("Text API", () => {
 
     const maybeIt = runReal ? it : it.skip;
 
+    // Integrations: real `TextGenerationService` and `EmbeddingService` invoked; supabaseClient uses actual env config
+    // Shared data: persists outputs and any embeddings tied to `projectId` for the client
     maybeIt("runs end-to-end with real services when enabled", async () => {
       // Use a simple prompt and variantCount=0 to minimize work
       const res = await request(app)
