@@ -180,6 +180,119 @@ describe("ImageGenerationController.generate - validations and flow", () => {
     expect(sent.success).toBe(true);
     expect(sent.data.variant_count).toBe(saved.length);
   });
+
+  // boundary T4: - allowed aspectRatio includes 3:2
+  it("accepts allowed aspectRatio 3:2 and succeeds (T4)", async () => {
+    req.body = {
+      project_id: "p1",
+      prompt: "A prompt",
+      variantCount: 1,
+      aspectRatio: "3:2",
+    };
+
+    const project = { id: "p1", name: "Project", description: "Desc" } as any;
+    const theme = { inspirations: ["x"], tags: ["t"], analysis: {} } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    jest.spyOn(RAGService, "performRAG").mockResolvedValue({
+      avgSimilarity: 0.5,
+      relevantContents: [],
+      similarDescriptions: [],
+    } as any);
+
+    jest.spyOn(ThemeAnalysisService, "analyzeTheme").mockReturnValue({} as any);
+    jest
+      .spyOn(PromptEnhancementService, "enhancePromtWithRAG")
+      .mockReturnValue("enhanced");
+    jest
+      .spyOn(PromptEnhancementService, "buildBrandedPrompt")
+      .mockReturnValue({ prompt: "branded", negativePrompt: "neg" } as any);
+
+    const generated = [{ imageData: "b64", mimeType: "image/png" }] as any;
+    jest
+      .spyOn(ImageGenerationService, "generateImages")
+      .mockResolvedValue(generated as any);
+
+    const saved = [{ content_id: "c1", image_url: "u1" }];
+    jest
+      .spyOn(ImageGenerationController as any, "saveGeneratedImages")
+      .mockResolvedValue(saved as any);
+
+    jest
+      .spyOn(QualityScoringService, "scorePromptQuality")
+      .mockReturnValue(80 as any);
+    jest
+      .spyOn(PromptEnhancementService, "scoreRagQuality")
+      .mockReturnValue(70 as any);
+
+    await ImageGenerationController.generate(req, res);
+    expect(res.status).toHaveBeenCalledWith(201);
+    const sent = res.send.mock.calls[0][0];
+    expect(sent.success).toBe(true);
+    expect(sent.data.variant_count).toBe(1);
+  });
+
+  // passthrough: input_images and overlay_text are forwarded to ImageGenerationService
+  it("forwards input_images and overlay_text to ImageGenerationService.generateImages", async () => {
+    const input_images = [
+      { data: "i1", mimeType: "image/png" },
+      { data: "i2", mimeType: "image/jpeg" },
+    ];
+    const overlay_text = "hello";
+    req.body = {
+      project_id: "p1",
+      prompt: "A prompt",
+      variantCount: 1,
+      aspectRatio: "1:1",
+      input_images,
+      overlay_text,
+    };
+
+    const project = { id: "p1", name: "Project", description: "Desc" } as any;
+    const theme = { inspirations: ["x"], tags: ["t"], analysis: {} } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    jest.spyOn(RAGService, "performRAG").mockResolvedValue({
+      avgSimilarity: 0.5,
+      relevantContents: [],
+      similarDescriptions: [],
+    } as any);
+
+    jest.spyOn(ThemeAnalysisService, "analyzeTheme").mockReturnValue({} as any);
+    jest
+      .spyOn(PromptEnhancementService, "enhancePromtWithRAG")
+      .mockReturnValue("enhanced");
+    jest
+      .spyOn(PromptEnhancementService, "buildBrandedPrompt")
+      .mockReturnValue({ prompt: "branded", negativePrompt: "neg" } as any);
+
+    const genSpy = jest
+      .spyOn(ImageGenerationService, "generateImages")
+      .mockResolvedValue([{ imageData: "b64", mimeType: "image/png" }] as any);
+
+    jest
+      .spyOn(ImageGenerationController as any, "saveGeneratedImages")
+      .mockResolvedValue([{ content_id: "c1", image_url: "u1" }] as any);
+
+    jest
+      .spyOn(QualityScoringService, "scorePromptQuality")
+      .mockReturnValue(80 as any);
+    jest
+      .spyOn(PromptEnhancementService, "scoreRagQuality")
+      .mockReturnValue(70 as any);
+
+    await ImageGenerationController.generate(req, res);
+
+    expect(genSpy).toHaveBeenCalled();
+    const callArgs = genSpy.mock.calls[0][0];
+    expect(callArgs.inputImages).toEqual(input_images);
+    expect(callArgs.overlayText).toBe(overlay_text);
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
 });
 
 describe("ImageGenerationController.saveGeneratedImages - persistence cases", () => {

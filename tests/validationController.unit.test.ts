@@ -122,6 +122,52 @@ describe("ValidationController.validate - input validation and flow", () => {
     expect(sent.data.validation.overall_score).toBeGreaterThanOrEqual(0);
     expect(sent.data.validation.passes_validation).toBe(true);
   });
+
+  // T1 valid: ad-hoc image validation path with image_base64 + project_id
+  it("returns 200 for ad-hoc image validation with image_base64 (T1)", async () => {
+    const image_base64 = "iVBORw0KGgoAAAANSUhEUg==";
+    req.body = { image_base64, project_id: "p1" };
+
+    // getContentData should process image path
+    jest
+      .spyOn(ValidationController as any, "getContentData")
+      .mockResolvedValue({
+        projectId: "p1",
+        textContent: "[Image content]",
+        contentEmbedding: [0.01, 0.02],
+        actualMediaType: "image",
+      } as any);
+
+    const project = {
+      id: "p1",
+      description: "desc",
+      goals: "g",
+      customer_type: "developers",
+    } as any;
+    const theme = {
+      name: "Theme",
+      tags: ["t1"],
+      inspirations: ["insp"],
+    } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    // calculateBrandConsistency should be called with useMultimodal=true
+    const brandSpy = jest
+      .spyOn(ValidationController as any, "calculateBrandConsistency")
+      .mockResolvedValue(60 as any);
+
+    jest
+      .spyOn(QualityScoringService, "scoreImageQuality")
+      .mockReturnValue(80 as any);
+
+    await ValidationController.validate(req, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    const sent = res.send.mock.calls[0][0];
+    expect(sent.data.validation).toBeDefined();
+    expect(brandSpy).toHaveBeenCalledWith([0.01, 0.02], project, theme, true);
+  });
 });
 
 describe("ValidationController.getContentData - retrieval & embedding paths", () => {
@@ -163,6 +209,26 @@ describe("ValidationController.getContentData - retrieval & embedding paths", ()
     expect(res.projectId).toBe("p1");
     expect(res.contentEmbedding).toBe(emb);
   });
+
+  // T1: ad-hoc image path uses EmbeddingService.generateImageEmbedding and sets media type
+  it("uses EmbeddingService.generateImageEmbedding for ad-hoc image and sets media type image (T1)", async () => {
+    const img = "base64img";
+    jest
+      .spyOn(EmbeddingService, "generateImageEmbedding")
+      .mockResolvedValue([0.01, 0.02] as any);
+    const res = await (ValidationController as any).getContentData(
+      undefined,
+      undefined,
+      "p1",
+      undefined,
+      img
+    );
+    expect(EmbeddingService.generateImageEmbedding).toHaveBeenCalledWith(img);
+    expect(res.projectId).toBe("p1");
+    expect(res.actualMediaType).toBe("image");
+    expect(res.textContent).toBe("[Image content]");
+    expect(Array.isArray(res.contentEmbedding)).toBe(true);
+  });
 });
 
 describe("ValidationController.calculateBrandConsistency - embedding comparisons", () => {
@@ -171,8 +237,7 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
     jest.clearAllMocks();
   });
 
-  // T2: no brandTexts -> returns 0
-  // T2 (adjusted): simulate very low similarity by stubbing embeddings to yield 0% average
+  // T2: simulate very low similarity by stubbing embeddings to yield 0% average
   it("returns 0 when similarities are all zero (T2)", async () => {
     const theme = { name: "", tags: [], inspirations: [] } as any;
     const project = { description: "", goals: "", customer_type: "" } as any;
@@ -213,7 +278,34 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
       project,
       theme
     );
-    expect(pct).toBe(50);
+    // Baseline 0.4, ceiling 0.75 -> with 0.5 similarity around 29%
+    expect(pct).toBe(29);
+  });
+
+  // T1: multimodal path scales lower similarities to reasonable percentage
+  it("scales multimodal (image) similarities with lower baseline (T1)", async () => {
+    const theme = { name: "N", tags: ["a"], inspirations: ["i"] } as any;
+    const project = {
+      description: "desc",
+      goals: "g",
+      customer_type: "c",
+    } as any;
+
+    jest
+      .spyOn(EmbeddingService, "generateMultimodalTextEmbedding")
+      .mockResolvedValue([0.2, 0.2] as any);
+    jest
+      .spyOn(EmbeddingService, "cosineSimilarity")
+      .mockReturnValue(0.18 as any);
+
+    const pct = await (ValidationController as any).calculateBrandConsistency(
+      [0.1, 0.1],
+      project,
+      theme,
+      true
+    );
+    expect(pct).toBeGreaterThan(0);
+    expect(pct).toBeLessThanOrEqual(100);
   });
 });
 
@@ -263,5 +355,51 @@ describe("ValidationController.generateValidationInsights - rules and summaries"
       out.recommendations.some((r: string) => r.startsWith("Address audience:"))
     ).toBe(true);
     expect(out.summary).toMatch(/deviates|needs revision|Content needs/i);
+  });
+
+  // T4: boundary summary buckets around thresholds
+  it("produces correct summary text at bucket thresholds (T4)", () => {
+    const theme = { inspirations: [], tags: [] } as any;
+    const project = { customer_type: "testers" } as any;
+    const s85 = (ValidationController as any).generateValidationInsights(
+      80,
+      90,
+      85,
+      true,
+      "content mentions testers",
+      theme,
+      project
+    );
+    expect(s85.summary).toMatch(/Excellent/);
+    const s70 = (ValidationController as any).generateValidationInsights(
+      70,
+      70,
+      70,
+      true,
+      "content mentions testers",
+      theme,
+      project
+    );
+    expect(s70.summary).toMatch(/Good/);
+    const s50 = (ValidationController as any).generateValidationInsights(
+      50,
+      55,
+      50,
+      false,
+      "short",
+      theme,
+      project
+    );
+    expect(s50.summary).toMatch(/needs revision|Content needs/i);
+    const s49 = (ValidationController as any).generateValidationInsights(
+      40,
+      40,
+      49,
+      false,
+      "short",
+      theme,
+      project
+    );
+    expect(s49.summary).toMatch(/deviates|significantly/i);
   });
 });
