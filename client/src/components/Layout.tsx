@@ -11,7 +11,7 @@ export default function Layout({ children }: LayoutProps) {
   const { clearAuth, clientName } = useAuth();
 
   const navigation = [
-    { name: 'Home', href: '/' },
+    { name: 'Campaigns', href: '/' },
     { name: 'Create', href: '/create' },
     { name: 'Validate', href: '/validate' },
   ];
@@ -30,7 +30,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary-600" />
-                <span className="font-semibold text-gray-900">Ditto</span>
+                <span className="font-semibold text-gray-900">LinkLaunch</span>
               </Link>
 
               <nav className="flex items-center gap-1">

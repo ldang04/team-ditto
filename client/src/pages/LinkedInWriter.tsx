@@ -4,7 +4,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import {
   Loader2,
-  Send,
   Hash,
   Copy,
   Check,
@@ -168,16 +167,11 @@ export default function LinkedInWriter() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Send className="h-6 w-6 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-900">LinkedIn Post Writer</h1>
-        </div>
-        <p className="text-gray-500">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">LinkedIn Post Writer</h1>
+        <p className="text-gray-500 mt-1">
           Create engaging LinkedIn posts powered by your brand voice
         </p>
       </div>
