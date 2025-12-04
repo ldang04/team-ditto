@@ -156,27 +156,41 @@ export const ValidationController = {
         throw new Error("Content not found");
       }
 
-      textContent = existingContent.text_content;
       actualMediaType = existingContent.media_type;
       projectId = existingContent.project_id;
 
-      // Get or generate embedding
-      const { data: embeddingData } = await EmbeddingsModel.getByContentId(
-        content_id
-      );
-      if (embeddingData && embeddingData.length > 0) {
-        contentEmbedding = embeddingData[0].embedding;
-      } else if (media_type === "image") {
-        contentEmbedding = await EmbeddingService.generateAndStoreImage(
-          content_id,
-          textContent
-        );
-        textContent = existingContent.prompt;
+      // For images, use the enhanced_prompt for brand comparison (contains brand keywords)
+      // Fall back to original prompt if enhanced_prompt not available
+      // For text, use the text_content directly
+      if (actualMediaType === "image") {
+        textContent = existingContent.enhanced_prompt || existingContent.prompt || "";
       } else {
-        contentEmbedding = await EmbeddingService.generateAndStoreText(
-          content_id,
+        textContent = existingContent.text_content;
+      }
+
+      // Get or generate embedding for brand consistency comparison
+      // For images: use text embedding of the ENHANCED_PROMPT for brand comparison
+      //   - Enhanced prompt contains brand keywords (Mofusand, Smiski, playful, etc)
+      //   - This compares what the image was generated from vs brand guidelines
+      // For text: use the text embedding directly
+      if (actualMediaType === "image") {
+        // Generate text embedding from the prompt for brand comparison
+        contentEmbedding = await EmbeddingService.generateDocumentEmbedding(
           textContent
         );
+      } else {
+        // For text content, try to get existing embedding or generate new one
+        const { data: embeddingData } = await EmbeddingsModel.getByContentId(
+          content_id
+        );
+        if (embeddingData && embeddingData.length > 0) {
+          contentEmbedding = embeddingData[0].embedding;
+        } else {
+          contentEmbedding = await EmbeddingService.generateAndStoreText(
+            content_id,
+            textContent
+          );
+        }
       }
     } else {
       // Validate new content
@@ -205,15 +219,27 @@ export const ValidationController = {
     theme: Theme
   ): Promise<number> {
     // Build concise reference texts that capture the brand's language and
-    // stylistic signals. These short strings are what we embed and compare
-    // against the content embedding.
-    const brandTexts = [
-      `${theme.name}: ${theme.tags?.join(", ") || ""}`,
-      `Inspired by: ${theme.inspirations?.join(", ") || ""}`,
-      `${project.description || ""}`,
-      `Goals: ${project.goals || ""}`,
-      `Target: ${project.customer_type || ""}`,
-    ].filter(Boolean);
+    // stylistic signals. Only include texts that have meaningful content.
+    const brandTexts: string[] = [];
+
+    // Theme-based signals (these are the strongest brand indicators)
+    if (theme.name && theme.tags?.length) {
+      brandTexts.push(`${theme.name}: ${theme.tags.join(", ")}`);
+    }
+    if (theme.inspirations?.length) {
+      brandTexts.push(`Inspired by: ${theme.inspirations.join(", ")}`);
+    }
+
+    // Project-based signals (only add if they have actual content)
+    if (project.description?.trim()) {
+      brandTexts.push(project.description);
+    }
+    if (project.goals?.trim()) {
+      brandTexts.push(`Goals: ${project.goals}`);
+    }
+    if (project.customer_type?.trim()) {
+      brandTexts.push(`Target audience: ${project.customer_type}`);
+    }
 
     if (brandTexts.length === 0) {
       // No brand signals available — return minimal alignment.
@@ -221,6 +247,7 @@ export const ValidationController = {
     }
 
     // Generate embeddings for each brand reference in parallel.
+    // Use RETRIEVAL_DOCUMENT task type for symmetric comparison with content embeddings.
     const brandEmbeddings = await Promise.all(
       brandTexts.map((text) => EmbeddingService.generateDocumentEmbedding(text))
     );
@@ -230,12 +257,31 @@ export const ValidationController = {
       EmbeddingService.cosineSimilarity(contentEmbedding, brandEmb)
     );
 
-    // Average the similarity scores and convert to percentage.
+    // Average the similarity scores and scale to intuitive percentage.
+    // text-embedding-004 produces similarity in range ~0.3-0.8 for varied content:
+    // - 0.3-0.4: unrelated content
+    // - 0.5-0.6: weakly related
+    // - 0.6-0.7: moderately related
+    // - 0.7-0.8: strongly related
+    // We scale this to 0-100% where:
+    // - <0.4 maps to 0-40% (poor alignment)
+    // - 0.4-0.6 maps to 40-70% (moderate alignment)
+    // - >0.6 maps to 70-100% (good alignment)
     const avgSimilarity =
       similarityScores.reduce((sum, score) => sum + score, 0) /
       similarityScores.length;
 
-    return Math.round(avgSimilarity * 100);
+    // Scale similarity to more intuitive brand score
+    // Baseline of 0.4 represents random/unrelated content
+    // Similarity of 0.75+ represents excellent brand match
+    const baseline = 0.4;
+    const ceiling = 0.75;
+    const scaledScore = Math.max(
+      0,
+      Math.min(100, ((avgSimilarity - baseline) / (ceiling - baseline)) * 100)
+    );
+
+    return Math.round(scaledScore);
   },
 
   /**
