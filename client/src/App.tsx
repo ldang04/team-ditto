@@ -2,8 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import CampaignsDashboard from './pages/CampaignsDashboard';
-import AssetGenerator from './pages/AssetGenerator';
 import ContentLibraryPage from './pages/ContentLibraryPage';
+import LinkedInWriter from './pages/LinkedInWriter';
 import BrandSetup from './pages/BrandSetup';
 import Layout from './components/Layout';
 import { Loader2 } from 'lucide-react';
@@ -49,11 +49,11 @@ function App() {
         />
 
         <Route
-          path="/generate"
+          path="/create"
           element={
             <PrivateRoute>
               <Layout>
-                <AssetGenerator />
+                <LinkedInWriter />
               </Layout>
             </PrivateRoute>
           }
