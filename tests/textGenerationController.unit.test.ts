@@ -22,7 +22,7 @@ process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "test-project";
 import logger from "../src/config/logger";
 import { TextGenerationController } from "../src/controllers/TextGenerationController";
 import { ProjectThemeService } from "../src/services/ProjectThemeService";
-import { TextGenerationService } from "../src/services/TextGenerationService";
+import { ContentGenerationPipeline } from "../src/services/ContentGenerationPipeline";
 import { ContentModel } from "../src/models/ContentModel";
 import { EmbeddingService } from "../src/services/EmbeddingService";
 
@@ -91,17 +91,35 @@ describe("TextGenerationController.generate - validations and flow", () => {
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
 
-    const generated = ["v1", "v2"] as any;
+    // Mock pipeline result with new structure
+    const mockPipelineResult = {
+      variants: [
+        { content: "v1", qualityScore: 80, analysis: {}, rank: 1, compositeScore: 75 },
+        { content: "v2", qualityScore: 85, analysis: {}, rank: 2, compositeScore: 78 },
+      ],
+      metadata: {
+        themeAnalysis: { visual_mood: "balanced", dominant_styles: [], brand_strength: 50, color_palette: {} },
+        ragSimilarity: 0.5,
+        ragContentCount: 0,
+        enhancedPrompt: "enhanced",
+        predictedQuality: 70,
+        averageQuality: 82,
+        averageCompositeScore: 76,
+        diversity: { diversity_score: 80, avg_pairwise_similarity: 0.2, unique_variant_count: 2, duplicate_pairs: [] },
+        generationTimestamp: new Date().toISOString(),
+        pipelineStages: [],
+      },
+    };
     jest
-      .spyOn(TextGenerationService, "generateContent")
-      .mockResolvedValue(generated as any);
+      .spyOn(ContentGenerationPipeline, "execute")
+      .mockResolvedValue(mockPipelineResult as any);
 
     // saveGeneratedContents spy - assume controller persists correctly
     jest
       .spyOn(TextGenerationController as any, "saveGeneratedContents")
       .mockResolvedValueOnce([
-        { content_id: "c1", generated_content: "v1" },
-        { content_id: "c2", generated_content: "v2" },
+        { content_id: "c1", generated_content: "v1", quality_score: 80, composite_score: 75, rank: 1, analysis: {} },
+        { content_id: "c2", generated_content: "v2", quality_score: 85, composite_score: 78, rank: 2, analysis: {} },
       ] as any);
 
     await TextGenerationController.generate(req, res);
@@ -118,9 +136,17 @@ describe("TextGenerationController.generate - validations and flow", () => {
     jest
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
-    jest
-      .spyOn(TextGenerationService, "generateContent")
-      .mockResolvedValue(["only"] as any);
+
+    const mockPipelineResult = {
+      variants: [{ content: "only", qualityScore: 80, analysis: {}, rank: 1, compositeScore: 75 }],
+      metadata: {
+        themeAnalysis: { visual_mood: "balanced", dominant_styles: [], brand_strength: 50, color_palette: {} },
+        ragSimilarity: 0, ragContentCount: 0, enhancedPrompt: "e", predictedQuality: 70, averageQuality: 80,
+        averageCompositeScore: 75, diversity: { diversity_score: 100, avg_pairwise_similarity: 0, unique_variant_count: 1, duplicate_pairs: [] },
+        generationTimestamp: new Date().toISOString(), pipelineStages: [],
+      },
+    };
+    jest.spyOn(ContentGenerationPipeline, "execute").mockResolvedValue(mockPipelineResult as any);
     jest
       .spyOn(TextGenerationController as any, "saveGeneratedContents")
       .mockResolvedValue([] as any);
@@ -140,9 +166,17 @@ describe("TextGenerationController.generate - validations and flow", () => {
     jest
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
-    jest
-      .spyOn(TextGenerationService, "generateContent")
-      .mockResolvedValue([] as any);
+
+    const mockPipelineResult = {
+      variants: [],
+      metadata: {
+        themeAnalysis: { visual_mood: "balanced", dominant_styles: [], brand_strength: 50, color_palette: {} },
+        ragSimilarity: 0, ragContentCount: 0, enhancedPrompt: "e", predictedQuality: 70, averageQuality: 0,
+        averageCompositeScore: 0, diversity: { diversity_score: 100, avg_pairwise_similarity: 0, unique_variant_count: 0, duplicate_pairs: [] },
+        generationTimestamp: new Date().toISOString(), pipelineStages: [],
+      },
+    };
+    jest.spyOn(ContentGenerationPipeline, "execute").mockResolvedValue(mockPipelineResult as any);
     jest
       .spyOn(TextGenerationController as any, "saveGeneratedContents")
       .mockResolvedValue([] as any);
@@ -160,16 +194,26 @@ describe("TextGenerationController.generate - validations and flow", () => {
     jest
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
-    const generated = Array.from({ length: 10 }, (_, i) => `v${i}`) as any;
-    jest
-      .spyOn(TextGenerationService, "generateContent")
-      .mockResolvedValue(generated as any);
+
+    const mockVariants = Array.from({ length: 10 }, (_, i) => ({
+      content: `v${i}`, qualityScore: 80, analysis: {}, rank: i + 1, compositeScore: 75,
+    }));
+    const mockPipelineResult = {
+      variants: mockVariants,
+      metadata: {
+        themeAnalysis: { visual_mood: "balanced", dominant_styles: [], brand_strength: 50, color_palette: {} },
+        ragSimilarity: 0.5, ragContentCount: 0, enhancedPrompt: "e", predictedQuality: 70, averageQuality: 80,
+        averageCompositeScore: 75, diversity: { diversity_score: 70, avg_pairwise_similarity: 0.3, unique_variant_count: 10, duplicate_pairs: [] },
+        generationTimestamp: new Date().toISOString(), pipelineStages: [],
+      },
+    };
+    jest.spyOn(ContentGenerationPipeline, "execute").mockResolvedValue(mockPipelineResult as any);
     jest
       .spyOn(TextGenerationController as any, "saveGeneratedContents")
       .mockResolvedValue(
-        generated.map((g: any, i: number) => ({
-          content_id: `c${i}`,
-          generated_content: g,
+        mockVariants.map((v, i) => ({
+          content_id: `c${i}`, generated_content: v.content, quality_score: v.qualityScore,
+          composite_score: v.compositeScore, rank: v.rank, analysis: v.analysis,
         })) as any
       );
 
@@ -184,9 +228,23 @@ describe("TextGenerationController.saveGeneratedContents - persistence cases", (
     jest.clearAllMocks();
   });
 
+  // Helper to create mock VariantWithScore with new marketing analysis structure
+  const makeVariant = (content: string, rank = 1) => ({
+    content,
+    qualityScore: 80,
+    analysis: {
+      readability: { score: 70, power_word_count: 3, has_cta: true, scannability_score: 80, level: "moderate" },
+      tone: { urgency_score: 50, benefit_score: 60, social_proof_score: 30, emotional_appeal: 40, overall_persuasion: 50, label: "strong" },
+      keyword_density: { brand_keyword_count: 2, brand_keyword_percentage: 4, top_keywords: [] },
+      structure: { sentence_count: 3, word_count: 50, avg_sentence_length: 17, paragraph_count: 1 },
+    },
+    rank,
+    compositeScore: 75,
+  });
+
   // T1 valid: saves multiple variants (T1)
   it("saves multiple generated contents successfully (T1)", async () => {
-    const variants = ["a", "b"] as any;
+    const variants = [makeVariant("a", 1), makeVariant("b", 2)] as any;
     const project_id = "p1";
     const prompt = "p";
 
@@ -206,11 +264,13 @@ describe("TextGenerationController.saveGeneratedContents - persistence cases", (
     );
     expect(res.length).toBe(2);
     expect(res[0].content_id).toBe("c1");
+    expect(res[0].quality_score).toBe(80);
+    expect(res[0].composite_score).toBe(75);
   });
 
   // T3 atypical: DB create fails for first variant -> only second saved
   it("skips variants when DB create fails (T3)", async () => {
-    const variants = ["a", "b"] as any;
+    const variants = [makeVariant("a", 1), makeVariant("b", 2)] as any;
     const project_id = "p1";
     const prompt = "p";
 
@@ -234,7 +294,7 @@ describe("TextGenerationController.saveGeneratedContents - persistence cases", (
 
   // T3 atypical: embedding generation fails -> variant is skipped by current implementation
   it("skips variant when embedding generation fails (T3)", async () => {
-    const variants = ["a"] as any;
+    const variants = [makeVariant("a")] as any;
     const project_id = "p1";
     const prompt = "p";
 
