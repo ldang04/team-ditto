@@ -2,10 +2,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import CampaignsDashboard from './pages/CampaignsDashboard';
-import ContentLibraryPage from './pages/ContentLibraryPage';
 import LinkedInWriter from './pages/LinkedInWriter';
 import BrandSetup from './pages/BrandSetup';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import ValidationPage from './pages/ValidationPage';
 import Layout from './components/Layout';
 import { Loader2 } from 'lucide-react';
 
@@ -61,11 +61,11 @@ function App() {
         />
 
         <Route
-          path="/library"
+          path="/validate"
           element={
             <PrivateRoute>
               <Layout>
-                <ContentLibraryPage />
+                <ValidationPage />
               </Layout>
             </PrivateRoute>
           }

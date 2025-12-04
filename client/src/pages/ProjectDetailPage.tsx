@@ -214,7 +214,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mb-2">
         <Link
           to="/"
           className="text-gray-600 hover:text-gray-900"
@@ -222,9 +222,9 @@ export default function ProjectDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{project.name}</h1>
           {project.description && (
-            <p className="text-gray-600 mt-2">{project.description}</p>
+            <p className="text-gray-500 mt-1">{project.description}</p>
           )}
         </div>
       </div>
