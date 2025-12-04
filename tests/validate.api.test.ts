@@ -14,6 +14,10 @@
  *   - B2 Invalid: Neither content_id nor (content + project_id) → 400
  *   - N1 Not Found: content_id or project_id does not exist → 404
  *   - T1 Atypical: Very short content or excessive punctuation → 200 with minor issues
+ *
+ * - Brand Consistency Scenarios (text path)
+ *   - S1 Low similarity: Irrelevant theme vs technical prompt → low brand_consistency_score, low overall
+ *   - S2 High similarity: Aligned theme vs technical prompt → high brand_consistency_score, high overall
  */
 
 process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "team-ditto";
@@ -23,6 +27,7 @@ import request from "supertest";
 import app from "../src/app";
 import { resetMockTables } from "../__mocks__/supabase";
 import logger from "../src/config/logger";
+import { EmbeddingService } from "../src/services/EmbeddingService";
 
 describe("Validate API", () => {
   let apiKey: string;
@@ -168,6 +173,107 @@ describe("Validate API", () => {
         .set("Authorization", `Bearer   ${apiKey}`)
         .send({ content: "Hello", project_id: projectId });
       expect([403]).toContain(res.status);
+    });
+
+    // Low vs High brand-consistency scenarios
+    it("returns very low brand consistency for irrelevant theme vs prompt (P1, B1, S1)", async () => {
+      // Create an isolated project with non-tech brand signals to avoid accidental similarity
+      const projRes = await request(app)
+        .post("/api/projects/create")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          name: "Ocean Crafts Project",
+          description: "Handmade seaweed baskets and coral art for hobbyists",
+          goals: "Teach weaving techniques",
+          customer_type: "ocean hobbyists",
+        });
+      expect(projRes.status).toBe(201);
+      const lowProjId = projRes.body.data.id;
+
+      // Create and link an intentionally irrelevant theme
+      const themeRes = await request(app)
+        .post("/api/themes/create")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          project_id: lowProjId,
+          name: "Underwater Basket Weaving",
+          tags: ["seaweed", "coral", "oceans", "weaving"],
+          inspirations: ["Poseidon", "Aquaman"],
+        });
+      expect([200, 201]).toContain(themeRes.status);
+      const themeId = themeRes.body.data.id;
+      const linkRes = await request(app)
+        .put(`/api/projects/${lowProjId}`)
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ theme_id: themeId });
+      expect([200]).toContain(linkRes.status);
+
+      const res = await request(app)
+        .post("/api/validate")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          project_id: lowProjId,
+          content:
+            "Launching an enterprise data platform for distributed ML workloads on Kubernetes with GPU autoscaling.",
+        });
+
+      expect(res.status).toBe(200);
+      const validation = res.body.data.validation;
+      expect(validation).toBeDefined();
+      // Real embeddings: expect clear misalignment (allowing some baseline noise)
+      expect(validation.brand_consistency_score).toBeLessThanOrEqual(50);
+      // Keep overall low as well given weighting
+      expect(validation.overall_score).toBeLessThan(60);
+    });
+
+    it("returns very high brand consistency for strongly aligned theme and prompt (P1, B1, S2)", async () => {
+      // Create an isolated project with tech/AI brand signals to boost similarity
+      const projRes = await request(app)
+        .post("/api/projects/create")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          name: "AI Dev Tools Project",
+          description: "Kubernetes-native MLOps for ML engineers",
+          goals: "GPU-accelerated distributed training",
+          customer_type: "ML engineers",
+        });
+      expect(projRes.status).toBe(201);
+      const hiProjId = projRes.body.data.id;
+
+      // Create and link a theme that matches the prompt content closely
+      const themeRes = await request(app)
+        .post("/api/themes/create")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          project_id: hiProjId,
+          name: "AI Dev Tools",
+          tags: ["Kubernetes", "GPU", "distributed training", "MLOps"],
+          inspirations: ["NVIDIA", "OpenAI"],
+        });
+      expect([200, 201]).toContain(themeRes.status);
+      const themeId = themeRes.body.data.id;
+      const linkRes = await request(app)
+        .put(`/api/projects/${hiProjId}`)
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({ theme_id: themeId });
+      expect([200]).toContain(linkRes.status);
+
+      const res = await request(app)
+        .post("/api/validate")
+        .set("Authorization", `Bearer ${apiKey}`)
+        .send({
+          project_id: hiProjId,
+          content:
+            "Announcing our Kubernetes-native MLOps platform with GPU-accelerated distributed training and seamless developer tooling for AI teams.",
+        });
+
+      expect(res.status).toBe(200);
+      const validation = res.body.data.validation;
+      expect(validation).toBeDefined();
+      // Real embeddings: expect strong alignment
+      expect(validation.brand_consistency_score).toBeGreaterThanOrEqual(80);
+      // Overall should be high and likely pass
+      expect(validation.overall_score).toBeGreaterThanOrEqual(80);
     });
   });
 });

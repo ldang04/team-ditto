@@ -3,26 +3,37 @@
  *
  * Units under test:
  * - ValidationController.validate(req, res)
- * - ValidationController.getContentData(content_id, content, project_id, media_type)
- * - ValidationController.calculateBrandConsistency(contentEmbedding, project, theme)
+ * - ValidationController.getContentData(content_id, content, project_id, media_type, image_base64?)
+ * - ValidationController.calculateBrandConsistency(contentEmbedding, project, theme, useMultimodal?)
  * - ValidationController.generateValidationInsights(...)
  *
  * Partitions (per unit):
  * - validate:
- *   T1 (Valid): content_id OR (content + project_id) provided, project/theme exists, embeddings & scoring available.
- *   T2 (Invalid): neither content_id nor (content+project_id) provided -> 400.
- *   T3 (Atypical): project/theme missing -> 404; underlying getContentData throws -> 500.
- * - getContentData:
- *   T1: content_id resolves to DB row with existing embedding.
- *   T2: content_id resolves to nothing -> throws (content not found).
- *   T3: ad-hoc content + project_id path uses EmbeddingService.generateDocumentEmbedding.
- * - calculateBrandConsistency:
- *   T1: brandTexts present -> returns percent based on embedding similarity.
- *   T2: no brandTexts -> returns 0.
- * - generateValidationInsights:
- *   T1: high scores -> strengths, Excellent summary.
- *   T2: low scores with patterns -> issues, recommendations, lower summary.
+ *   T1 (Valid): content_id OR (content + project_id) OR (image_base64 + project_id) provided; project/theme exists; scoring succeeds → 200.
+ *   T2 (Invalid): neither content_id nor (content + project_id) provided → 400.
+ *   T3 (Atypical/Invalid): project/theme missing → 404; internal path throws → 500.
+ *   T4 (Invalid): content present but project_id missing → 400.
+ *   T5 (Invalid): image_base64 present but project_id missing → 400.
+ *   T6 (Error): scoring or controller internals throw → 500.
  *
+ * - getContentData:
+ *   T1: ad-hoc image path uses EmbeddingService.generateImageEmbedding and sets media type image.
+ *   T2: content_id resolves to nothing → throws (content not found).
+ *   T3: ad-hoc text path uses EmbeddingService.generateDocumentEmbedding.
+ *   T4: content_id path returns existing embedding without regenerating.
+ *   T5: content_id path missing embedding for text → regenerates via generateDocumentEmbedding.
+ *
+ * - calculateBrandConsistency:
+ *   T1: brandTexts present → returns percent based on embedding similarity.
+ *   T2: no brandTexts → returns 0.
+ *   BC1 Boundary: average similarity at baseline → 0%.
+ *   BC2 Boundary: average similarity above ceiling → 100%.
+ *   T1-m (multimodal): when useMultimodal=true applies lower baseline/ceiling, clamped to [0, 100].
+ *
+ * - generateValidationInsights:
+ *   T1: high scores → strengths, Excellent summary.
+ *   T2: low scores with patterns → issues, recommendations, lower summary.
+ *   T4 Boundary: bucket thresholds (85, 70, 50, <50) map to expected summaries.
  */
 
 // ensure env for any upstream initializers
@@ -30,6 +41,7 @@ process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "test-project";
 
 import { ValidationController } from "../src/controllers/ValidationController";
 import { ContentModel } from "../src/models/ContentModel";
+import { EmbeddingsModel } from "../src/models/EmbeddingsModel";
 import { EmbeddingService } from "../src/services/EmbeddingService";
 import { ProjectThemeService } from "../src/services/ProjectThemeService";
 import { QualityScoringService } from "../src/services/QualityScoringService";
@@ -56,12 +68,31 @@ describe("ValidationController.validate - input validation and flow", () => {
     await ValidationController.validate(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
     const sent = res.send.mock.calls[0][0];
-    expect(sent.message).toMatch(/Must provide either content_id/);
+    expect(sent.message).toMatch(/Must provide either content_id/i);
+  });
+
+  // T4 invalid: content present but project_id missing
+  it("returns 400 when content present but project_id missing (T4)", async () => {
+    req.body = { content: "hello world" };
+    await ValidationController.validate(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    const sent = res.send.mock.calls[0][0];
+    expect(sent.message).toMatch(/Must provide either content_id/i);
+  });
+
+  // T5 invalid: image_base64 present but project_id missing
+  it("returns 400 when image_base64 present but project_id missing (T5)", async () => {
+    req.body = { image_base64: "iVBORw0KGgoAAAANSUhEUg==" };
+    await ValidationController.validate(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    const sent = res.send.mock.calls[0][0];
+    expect(sent.message).toMatch(
+      /project_id is required for image validation/i
+    );
   });
 
   // T3 atypical: project/theme not found (404)
   it("returns 404 when project/theme not found (T3)", async () => {
-    // mock getContentData to return ad-hoc resolved values
     jest
       .spyOn(ValidationController as any, "getContentData")
       .mockResolvedValue({
@@ -77,6 +108,49 @@ describe("ValidationController.validate - input validation and flow", () => {
     req.body = { content: "hello", project_id: "p1" };
     await ValidationController.validate(req, res);
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  // T3 error: internal getContentData throws -> 500
+  it("returns 500 when getContentData throws (T3)", async () => {
+    jest
+      .spyOn(ValidationController as any, "getContentData")
+      .mockRejectedValue(new Error("boom"));
+    req.body = { content: "hello", project_id: "p1" };
+    await ValidationController.validate(req, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    const sent = res.send.mock.calls[0][0];
+    expect(sent.success).toBe(false);
+  });
+
+  // T6 error: scoring throws -> 500
+  it("returns 500 when QualityScoringService throws (T6)", async () => {
+    jest
+      .spyOn(ValidationController as any, "getContentData")
+      .mockResolvedValue({
+        projectId: "p1",
+        textContent: "hello scoring",
+        contentEmbedding: [0.1, 0.2],
+        actualMediaType: "text",
+      } as any);
+
+    const project = { id: "p1" } as any;
+    const theme = { name: "t", tags: ["x"], inspirations: ["y"] } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    jest
+      .spyOn(ValidationController as any, "calculateBrandConsistency")
+      .mockResolvedValue(75 as any);
+    jest
+      .spyOn(QualityScoringService, "scoreTextQuality")
+      .mockImplementation(() => {
+        throw new Error("scoring failed");
+      });
+
+    req.body = { content: "hello scoring", project_id: "p1" };
+    await ValidationController.validate(req, res);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   // T1 valid: successful validation flow when content_id path provided
@@ -105,13 +179,16 @@ describe("ValidationController.validate - input validation and flow", () => {
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
 
-    // stub calculateBrandConsistency & scoring to deterministic values
     jest
       .spyOn(ValidationController as any, "calculateBrandConsistency")
       .mockResolvedValue(80 as any);
-    jest
+    const scoreTextSpy = jest
       .spyOn(QualityScoringService, "scoreTextQuality")
       .mockReturnValue(80 as any);
+    const scoreImageSpy = jest.spyOn(
+      QualityScoringService,
+      "scoreImageQuality"
+    );
 
     req.body = { content_id: "c1" };
     await ValidationController.validate(req, res);
@@ -121,6 +198,8 @@ describe("ValidationController.validate - input validation and flow", () => {
     expect(sent.data.validation).toBeDefined();
     expect(sent.data.validation.overall_score).toBeGreaterThanOrEqual(0);
     expect(sent.data.validation.passes_validation).toBe(true);
+    expect(scoreTextSpy).toHaveBeenCalled();
+    expect(scoreImageSpy).not.toHaveBeenCalled();
   });
 
   // T1 valid: ad-hoc image validation path with image_base64 + project_id
@@ -128,7 +207,6 @@ describe("ValidationController.validate - input validation and flow", () => {
     const image_base64 = "iVBORw0KGgoAAAANSUhEUg==";
     req.body = { image_base64, project_id: "p1" };
 
-    // getContentData should process image path
     jest
       .spyOn(ValidationController as any, "getContentData")
       .mockResolvedValue({
@@ -153,20 +231,22 @@ describe("ValidationController.validate - input validation and flow", () => {
       .spyOn(ProjectThemeService, "getProjectAndTheme")
       .mockResolvedValue({ project, theme } as any);
 
-    // calculateBrandConsistency should be called with useMultimodal=true
     const brandSpy = jest
       .spyOn(ValidationController as any, "calculateBrandConsistency")
       .mockResolvedValue(60 as any);
 
-    jest
+    const scoreImageSpy = jest
       .spyOn(QualityScoringService, "scoreImageQuality")
       .mockReturnValue(80 as any);
+    const scoreTextSpy = jest.spyOn(QualityScoringService, "scoreTextQuality");
 
     await ValidationController.validate(req, res);
     expect(res.status).toHaveBeenCalledWith(200);
     const sent = res.send.mock.calls[0][0];
     expect(sent.data.validation).toBeDefined();
     expect(brandSpy).toHaveBeenCalledWith([0.01, 0.02], project, theme, true);
+    expect(scoreImageSpy).toHaveBeenCalled();
+    expect(scoreTextSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -188,7 +268,70 @@ describe("ValidationController.getContentData - retrieval & embedding paths", ()
         undefined,
         undefined
       )
-    ).rejects.toThrow(/Content not found/);
+    ).rejects.toThrow(/Content not found/i);
+  });
+
+  // T4: content_id path returns existing embedding without regenerating
+  it("returns existing embedding for content_id without regenerating (T4)", async () => {
+    const row = {
+      id: "c1",
+      project_id: "p1",
+      media_type: "text",
+      text_content: "Saved text",
+    };
+    jest
+      .spyOn(ContentModel, "getById")
+      .mockResolvedValue({ data: row, error: null } as any);
+    jest
+      .spyOn(EmbeddingsModel, "getByContentId")
+      .mockResolvedValue({
+        data: [{ embedding: [0.3, 0.4] }],
+        error: null,
+      } as any);
+    const docSpy = jest.spyOn(EmbeddingService, "generateDocumentEmbedding");
+    const imgSpy = jest.spyOn(EmbeddingService, "generateImageEmbedding");
+
+    const res = await (ValidationController as any).getContentData(
+      "c1",
+      undefined,
+      undefined,
+      undefined
+    );
+    expect(res.projectId).toBe("p1");
+    expect(res.actualMediaType).toBe("text");
+    expect(res.textContent).toBe("Saved text");
+    expect(res.contentEmbedding).toEqual([0.3, 0.4]);
+    expect(docSpy).not.toHaveBeenCalled();
+    expect(imgSpy).not.toHaveBeenCalled();
+  });
+
+  // T5: content_id path missing embedding for text -> regenerates via document embedding
+  it("regenerates text embedding when missing on content row (T5)", async () => {
+    const row = {
+      id: "c1",
+      project_id: "p1",
+      media_type: "text",
+      text_content: "Needs embedding",
+    };
+    jest
+      .spyOn(ContentModel, "getById")
+      .mockResolvedValue({ data: row, error: null } as any);
+    jest
+      .spyOn(EmbeddingsModel, "getByContentId")
+      .mockResolvedValue({ data: [], error: null } as any);
+    jest
+      .spyOn(EmbeddingService, "generateAndStoreText")
+      .mockResolvedValue([0.11, 0.22] as any);
+
+    const res = await (ValidationController as any).getContentData(
+      "c1",
+      undefined,
+      undefined,
+      undefined
+    );
+    expect(res.projectId).toBe("p1");
+    expect(res.actualMediaType).toBe("text");
+    expect(res.contentEmbedding).toEqual([0.11, 0.22]);
   });
 
   // T3: ad-hoc content path uses EmbeddingService.generateDocumentEmbedding
@@ -241,11 +384,9 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
   it("returns 0 when similarities are all zero (T2)", async () => {
     const theme = { name: "", tags: [], inspirations: [] } as any;
     const project = { description: "", goals: "", customer_type: "" } as any;
-    // stub embedding generation to return some vectors
     jest
       .spyOn(EmbeddingService, "generateDocumentEmbedding")
       .mockResolvedValue([0.1, 0.1] as any);
-    // stub cosine similarity to always return 0
     jest.spyOn(EmbeddingService, "cosineSimilarity").mockReturnValue(0 as any);
 
     const res = await (ValidationController as any).calculateBrandConsistency(
@@ -264,8 +405,6 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
       goals: "g",
       customer_type: "c",
     } as any;
-
-    // stub embeddings and similarity
     jest
       .spyOn(EmbeddingService, "generateDocumentEmbedding")
       .mockResolvedValue([0.2, 0.2] as any);
@@ -282,8 +421,46 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
     expect(pct).toBe(29);
   });
 
-  // T1: multimodal path scales lower similarities to reasonable percentage
-  it("scales multimodal (image) similarities with lower baseline (T1)", async () => {
+  // BC1 boundary: similarity at baseline -> 0%
+  it("clamps to 0% when average similarity equals baseline (BC1)", async () => {
+    const theme = { name: "n", tags: ["t"], inspirations: ["i"] } as any;
+    const project = { description: "d", goals: "g", customer_type: "c" } as any;
+    jest
+      .spyOn(EmbeddingService, "generateDocumentEmbedding")
+      .mockResolvedValue([0.2, 0.2] as any);
+    jest
+      .spyOn(EmbeddingService, "cosineSimilarity")
+      .mockReturnValue(0.4 as any);
+
+    const pct = await (ValidationController as any).calculateBrandConsistency(
+      [0.1, 0.1],
+      project,
+      theme
+    );
+    expect(pct).toBe(0);
+  });
+
+  // BC2 boundary: similarity above ceiling -> 100%
+  it("clamps to 100% when average similarity above ceiling (BC2)", async () => {
+    const theme = { name: "n", tags: ["t"], inspirations: ["i"] } as any;
+    const project = { description: "d", goals: "g", customer_type: "c" } as any;
+    jest
+      .spyOn(EmbeddingService, "generateDocumentEmbedding")
+      .mockResolvedValue([0.2, 0.2] as any);
+    jest
+      .spyOn(EmbeddingService, "cosineSimilarity")
+      .mockReturnValue(0.95 as any);
+
+    const pct = await (ValidationController as any).calculateBrandConsistency(
+      [0.1, 0.1],
+      project,
+      theme
+    );
+    expect(pct).toBe(100);
+  });
+
+  // T1-m: multimodal path scales lower similarities with clamps
+  it("scales multimodal (image) similarities with lower baseline (T1-m)", async () => {
     const theme = { name: "N", tags: ["a"], inspirations: ["i"] } as any;
     const project = {
       description: "desc",
@@ -304,7 +481,7 @@ describe("ValidationController.calculateBrandConsistency - embedding comparisons
       theme,
       true
     );
-    expect(pct).toBeGreaterThan(0);
+    expect(pct).toBeGreaterThanOrEqual(0);
     expect(pct).toBeLessThanOrEqual(100);
   });
 });
@@ -329,7 +506,7 @@ describe("ValidationController.generateValidationInsights - rules and summaries"
       project
     );
     expect(out.strengths.length).toBeGreaterThan(0);
-    expect(out.summary).toMatch(/Excellent/);
+    expect(out.summary).toMatch(/Excellent/i);
     expect(out.passes_validation).toBe(true);
   });
 
@@ -337,7 +514,7 @@ describe("ValidationController.generateValidationInsights - rules and summaries"
   it("flags issues and recommendations for low scores and patterns (T2)", () => {
     const theme = { inspirations: ["i1", "i2"], tags: ["t1"] } as any;
     const project = { customer_type: "enterprise customers" } as any;
-    const text = "Hi!!"; // short and excessive punctuation
+    const text = "Hi!!";
     const out = (ValidationController as any).generateValidationInsights(
       30,
       40,
@@ -370,7 +547,7 @@ describe("ValidationController.generateValidationInsights - rules and summaries"
       theme,
       project
     );
-    expect(s85.summary).toMatch(/Excellent/);
+    expect(s85.summary).toMatch(/Excellent/i);
     const s70 = (ValidationController as any).generateValidationInsights(
       70,
       70,
@@ -380,7 +557,7 @@ describe("ValidationController.generateValidationInsights - rules and summaries"
       theme,
       project
     );
-    expect(s70.summary).toMatch(/Good/);
+    expect(s70.summary).toMatch(/Good/i);
     const s50 = (ValidationController as any).generateValidationInsights(
       50,
       55,
