@@ -1,0 +1,53 @@
+name: CI for Style and Static Checking and Testing
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Create reports directory
+        run: mkdir -p reports
+      
+      - name: TypeScript type checking
+        run: npm run typecheck
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Run ESLint (style checking)
+        run: npm run lint
+      
+      - name: Run static analysis
+        run: npm run analyze
+        continue-on-error: false
+      
+      - name: Run unit tests
+        run: npm run test:unit
+      
+      - name: Upload test results and reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            reports/jest-junit.xml
+            reports/static-analysis-report.html
+            coverage/
+          retention-days: 7
+          if-no-files-found: ignore
