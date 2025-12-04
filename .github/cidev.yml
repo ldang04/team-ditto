@@ -2,9 +2,7 @@ name: CI Implementation for Style and Static Checking and Testing
 
 on:
   push:
-    branches: ['**']
   pull_request:
-    branches: ['**']
 
 jobs:
   ci:
