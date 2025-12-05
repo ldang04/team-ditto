@@ -1,14 +1,13 @@
 /**
- * Client API — Internal Integration Test + Partitions Mapping
+ * Client API — Integrations + Partitions Mapping
  *
- * Scope and integrations:
- * - Route/controller: `clientRoutes` mounts `POST /clients/create` and invokes
- *   controller logic to validate payload and persist the client.
- * - Middleware: Express JSON body parser; auth is not required for client creation.
- * - Models/storage: Client persistence path is exercised indirectly via routes
- *   (mocked by the test server setup); shared data is the request payload and
- *   response body.
- * - Logger: `src/config/logger` emits info/error in controllers; not asserted here.
+ * Internal integrations exercised by these tests:
+ * - `clientRoutes` → `ClientController` create path (`POST /clients/create`)
+ * - Express JSON body parser (no auth required for client creation)
+ * - Persistence/model layer via the app's mocked storage (in test server setup)
+ * - `logger` (`info`/`error`) invoked by controller (not asserted here)
+ *
+ * External integrations: none here.
  *
  * At least one valid case per integrated interface/shared data path:
  * - Valid creation flow (route + controller + JSON body): C1.
@@ -47,7 +46,6 @@ testServer.use(clientRoutes);
 describe("POST /clients/create - Client registration API", () => {
   // C1 Valid: proper payload -> expect 201
   // Integrates: Express route/controller (clientRoutes) with JSON body parser.
-  // Shares data: request payload {name,email,organization} -> controller persists, response body returns created client.
   it("Valid: creates client with proper payload (C1)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -59,7 +57,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C2 Invalid: name missing -> 400
   // Integrates: route/controller validation path rejecting missing required field.
-  // Shares data: request payload missing name; response communicates validation error.
   it("Invalid: returns 400 when name is missing (C2)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -69,7 +66,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C3 Invalid (boundary): name empty string -> 400
   // Integrates: route/controller input normalization/validation.
-  // Shares data: request payload with empty name; response error mapping.
   it("Invalid: returns 400 when name is empty string (C3)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -79,7 +75,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C4 Atypical: name whitespace-only -> 400
   // Integrates: controller trim/validation against whitespace-only name.
-  // Shares data: request payload name "   "; response validation error.
   it("Atypical: returns 400 when name is whitespace-only (C4)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -89,7 +84,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C5 Atypical: email missing -> still succeeds (controller only requires name)
   // Integrates: route/controller creation flow with optional fields.
-  // Shares data: request payload {name} only; response returns created client without email.
   it("Atypical: returns 201 when email is missing (C5)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -99,7 +93,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C6 Atypical: email bad format -> still succeeds (controller does not validate email format)
   // Integrates: controller creation path storing provided email as-is.
-  // Shares data: request payload with malformed email; response returns created client reflecting input.
   it("Atypical: returns 201 when email format is bad (C6)", async () => {
     const res = await request(testServer)
       .post("/clients/create")
@@ -109,7 +102,6 @@ describe("POST /clients/create - Client registration API", () => {
 
   // C7 Boundary: very long fields (at/above typical limits)
   // Integrates: controller limits/validation handling, persistence constraints.
-  // Shares data: request payload with long name/email; response indicates success or rejection.
   it("Boundary: handles very long name/email (C7)", async () => {
     const longName = "A".repeat(256);
     const longLocal = "a".repeat(64);

@@ -5,8 +5,7 @@
  * - HTTP layer: `app` mounts project routes and auth middleware.
  * - Middleware: Authorization header parsing (`Bearer <apiKey>`), JSON body parsing.
  * - Controllers + Models: Project create/list/update flows persisting and retrieving
- *   data (via mocked Supabase models in tests). Shared data includes API key context,
- *   request bodies, route params, and response payloads.
+ *   data (via mocked Supabase models in tests).
  * - Logger: `src/config/logger` emits info/error; spies validate invocation.
  *
  * At least one valid case per integrated interface/shared data path:
@@ -80,7 +79,6 @@ describe("Project API", () => {
   describe("POST /api/projects/create", () => {
     // Valid input (P1, C1 - Valid auth, valid name)
     // Integrates: route + auth middleware + controller + model persistence + logger.
-    // Shares data: Authorization API key context + body fields -> persisted project, response with id.
     it("should create a new project for authenticated client (P1, C1)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -104,7 +102,6 @@ describe("Project API", () => {
 
     // Invalid input (P1, C2 - Valid auth, invalid name: missing)
     // Integrates: route + auth + controller validation.
-    // Shares data: missing name in body -> response 400 with error message.
     it("should fail to create a project when name is missing (P1, C2)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -121,7 +118,6 @@ describe("Project API", () => {
 
     // Atypical valid input (P1, C3 - Valid auth, boundary name length)
     // Integrates: route + auth + controller minimal length acceptance.
-    // Shares data: body with name "a" -> persisted, response success.
     it("should create with minimal boundary name 'a' (P1, C3)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -134,7 +130,6 @@ describe("Project API", () => {
 
     // Invalid input (P1, C2 - Valid auth, invalid whitespace-only name)
     // Integrates: route + auth + controller trim/validation.
-    // Shares data: body name whitespace-only -> response 400.
     it("should reject whitespace-only name (P1, C2)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -147,7 +142,6 @@ describe("Project API", () => {
 
     // Atypical valid input (P1, C4 - Valid auth, atypical very long name)
     // Integrates: controller/model limits/robustness under long input.
-    // Shares data: body with very long name -> persisted, response success.
     it("should accept very long name (P1, C4)", async () => {
       const longName = "Project-" + "x".repeat(500);
       const res = await request(app)
@@ -160,7 +154,6 @@ describe("Project API", () => {
 
     // Atypical valid (T1): name with padding whitespace trims to non-empty
     // Integrates: controller normalization of name; model persistence.
-    // Shares data: trimmed name -> response success.
     it("should accept name with surrounding whitespace (P1, C1/T1)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -172,7 +165,6 @@ describe("Project API", () => {
 
     // Atypical valid (T2): Unicode/non-Latin/emoji name
     // Integrates: controller unicode handling; model persistence.
-    // Shares data: unicode name -> response success.
     it("should accept Unicode name (emoji and non-Latin) (P1, C1/T2)", async () => {
       const res = await request(app)
         .post("/api/projects/create")
@@ -186,7 +178,6 @@ describe("Project API", () => {
   describe("GET /api/projects", () => {
     // Valid input (P1 - Valid auth)
     // Integrates: route + auth + controller + model query.
-    // Shares data: API key context -> scoped list response.
     it("should list all projects for the authenticated client (P1)", async () => {
       const res = await request(app)
         .get("/api/projects")
@@ -200,7 +191,6 @@ describe("Project API", () => {
 
     // Invalid input (P2 - Invalid auth: missing header)
     // Integrates: auth middleware rejection.
-    // Shares data: missing header -> 401 response.
     it("should return 401 if no API key is provided (P2)", async () => {
       const res = await request(app).get("/api/projects");
       expect(res.status).toBe(401);
@@ -209,7 +199,6 @@ describe("Project API", () => {
 
     // Invalid input (P2 - Invalid auth: malformed header)
     // Integrates: auth middleware scheme validation.
-    // Shares data: wrong scheme -> 401 response.
     it("should return 401 for malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .get("/api/projects")
@@ -221,7 +210,6 @@ describe("Project API", () => {
 
     // Invalid input (P3 - Invalid auth: unknown/invalid key)
     // Integrates: auth middleware token validation.
-    // Shares data: invalid key -> 403/401 with appropriate message.
     it("should reject invalid API key (P3)", async () => {
       const res = await request(app)
         .get("/api/projects")
@@ -236,7 +224,6 @@ describe("Project API", () => {
 
     // Invalid boundary (P4): empty token after Bearer → 401
     // Integrates: auth middleware empty token handling.
-    // Shares data: empty token -> 401 response.
     it("should return 401 when Bearer token is empty (P4)", async () => {
       const res = await request(app)
         .get("/api/projects")
@@ -248,7 +235,6 @@ describe("Project API", () => {
 
     // Invalid formatting (T3) treated as invalid: Authorization with extra spaces → usually 403
     // Integrates: auth header parsing tolerance.
-    // Shares data: extra spaces -> typically invalid; outcome may vary by parser.
     it("should reject Authorization with extra spaces (P3/T3)", async () => {
       const res = await request(app)
         .get("/api/projects")
@@ -260,7 +246,6 @@ describe("Project API", () => {
   describe("PUT /api/projects/:id", () => {
     // Valid input (P1, U1 - Valid auth, valid id)
     // Integrates: route + auth + controller update + model persistence.
-    // Shares data: API key + path param id + body -> updated project, response body.
     it("should update an existing project (P1, U1)", async () => {
       const res = await request(app)
         .put(`/api/projects/${projectId}`)
@@ -278,7 +263,6 @@ describe("Project API", () => {
 
     // Invalid input (P1, U2 - Valid auth, missing id → route not matched → 404)
     // Integrates: router path matching behavior.
-    // Shares data: missing id in path -> 404.
     it("should return 404 when trying to update without project ID (P1, U2)", async () => {
       const res = await request(app)
         .put("/api/projects/")
@@ -292,7 +276,6 @@ describe("Project API", () => {
 
     // Invalid (U3/T3 - unusual/nonexistent id format; controller should not 400)
     // Integrates: controller error handling over nonexistent id.
-    // Shares data: weird id -> server error status, response structure.
     it("should reject update with unusual id format (U3/T3)", async () => {
       const weirdId = "nonexistent-" + "9".repeat(64);
       const res = await request(app)
@@ -305,7 +288,6 @@ describe("Project API", () => {
 
     // Atypical valid (T1): update allowing empty optional fields
     // Integrates: controller update accepting empty strings for optional fields.
-    // Shares data: body with empty optional fields -> success response.
     it("should update allowing empty optional fields (P1, U1/T1)", async () => {
       const res = await request(app)
         .put(`/api/projects/${projectId}`)
@@ -318,7 +300,6 @@ describe("Project API", () => {
   describe("Cross-client consistency", () => {
     // Multi-client isolation (P1 across different clients)
     // Integrates: clients API + projects API + auth scoping.
-    // Shares data: distinct API keys ensure isolated project lists per client.
     it("should isolate projects between two clients (P1 isolation)", async () => {
       // Create client A
       const clientA = await request(app)

@@ -1,11 +1,18 @@
 /**
- * tests/rank.api.test.ts
+ * Rank API — Integration Scope + Partitions
  *
- * Rank API - Integration tests (controller + middleware + routing)
+ * Internal integrations exercised:
+ * - `routes/rank.routes.ts` → `RankController` (ranking by `project_id` or `content_ids`)
+ * - `authMiddleware` for API key validation
+ * - `ContentService`/`ContentModel` for fetching content
+ * - `ProjectController`/`ProjectService` for project creation and theme association prerequisite
+ * - `ThemeController`/`ThemeService` for theme association checks
+ * - `QualityScoringService`/`RAGService` (indirect, if used by ranking pipeline)
+ * - `supabaseClient` (mocked) for DB-backed entities; `resetMockTables()` used in setup
+ *
+ * External integrations: none (ranking pipeline runs against mocked storage/DB).
  *
  * Equivalence Partitioning Map (API: Rank)
- *
- * Inputs under test:
  * - Authorization header (`Bearer <apiKey>`)
  *   - P1 Valid: Proper `Bearer <validKey>` → 200
  *   - P2 Invalid: Missing or malformed header → 401
@@ -93,6 +100,7 @@ describe("Rank API", () => {
 
   describe("POST /api/rank (authorized)", () => {
     // R1 (P1) Valid: content_ids provided
+    // Integrations: authMiddleware (P1), RankController ranks provided ids via ContentService/Model, prerequisite theme association checked
     it("ranks specific content ids (R1)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -106,6 +114,7 @@ describe("Rank API", () => {
     });
 
     // R2 (P1) Valid: project_id provided
+    // Integrations: controller fetches project content and ranks; theme association prerequisite
     it("ranks by project_id (R2)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -118,6 +127,7 @@ describe("Rank API", () => {
     });
 
     // R3 (P1) Boundary: limit applied
+    // Integrations: controller applies limit to ranked_content while preserving summary totals
     it("applies limit (R3)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -130,6 +140,7 @@ describe("Rank API", () => {
     });
 
     // R4 (P1) Boundary: project with no content
+    // Integrations: ranking pipeline returns empty array for empty project
     it("returns empty when project has no content (R4)", async () => {
       const resProj = await request(app)
         .post("/api/projects/create")
@@ -150,6 +161,7 @@ describe("Rank API", () => {
 
   describe("POST /api/rank - invalid inputs", () => {
     // R5 (P1) Invalid: missing both project_id and content_ids
+    // Integrations: controller validation rejects; ranking not executed
     it("returns 400 when missing both project_id and content_ids (R5)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -159,6 +171,7 @@ describe("Rank API", () => {
     });
 
     // R6 (P1) Invalid: content_ids empty array
+    // Integrations: controller validation rejects; ranking not executed
     it("returns 400 when content_ids is empty (R6)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -168,6 +181,7 @@ describe("Rank API", () => {
     });
 
     // R7 (P1) Invalid: content_ids not found
+    // Integrations: content fetch returns not-found; controller responds 404
     it("returns 404 for unknown content_ids (R7)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -177,6 +191,7 @@ describe("Rank API", () => {
     });
 
     // R8 (P1) Invalid: project/theme missing
+    // Integrations: project exists but lacks theme association; controller responds 404
     it("returns 404 when project/theme missing (R8)", async () => {
       // Create a project WITHOUT a theme, and add content to trigger theme fetch
       const projRes = await request(app)
@@ -206,6 +221,7 @@ describe("Rank API", () => {
 
   describe("Authorization partitions", () => {
     // P2 Invalid: missing Authorization header
+    // Integrations: authMiddleware rejects; controller short-circuits
     it("rejects missing Authorization header (P2)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -214,6 +230,7 @@ describe("Rank API", () => {
     });
 
     // P2 Invalid: malformed Authorization header scheme
+    // Integrations: authMiddleware rejects wrong scheme
     it("rejects malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -224,6 +241,7 @@ describe("Rank API", () => {
     });
 
     // P4 Boundary: empty Bearer token
+    // Integrations: empty token treated as missing
     it("rejects empty Bearer token (P4)", async () => {
       const res = await request(app)
         .post("/api/rank")
@@ -234,6 +252,7 @@ describe("Rank API", () => {
     });
 
     // P3 Invalid: unknown/invalid API key
+    // Integrations: authMiddleware verifies signature; rejects unknown key
     it("rejects invalid API key (P3)", async () => {
       const res = await request(app)
         .post("/api/rank")
