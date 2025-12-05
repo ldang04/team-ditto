@@ -157,16 +157,29 @@ The CI workflow requires these secrets to be set in GitHub (Settings → Secrets
 
 **Note:** Without these secrets, CI will fail when running tests that require database or AI services.
 
-#### What CI Tests
+**Also Note:** API tests (Postman/Newman) are not run in CI as they require a running server. Run them manually using `npm run api:test` after starting the server locally.
 
-The CI workflow runs:
-- ✅ TypeScript type checking
-- ✅ Code compilation (build)
-- ✅ ESLint style checking
-- ✅ Static analysis (bug detection)
-- ✅ Unit tests with coverage
+#### Example of CI At Work:
 
-**Note:** API tests (Postman/Newman) are not run in CI as they require a running server. Run them manually using `npm run api:test` after starting the server locally.
+Here is an example of CI catching an error through Unit tests:
+![sc of one ci report](./images/ciutestf1.png)
+
+
+Another image of the same issue
+
+![sc of anotehr ci report](./images/ciutestsf2.png)
+
+
+And here it is after the issues were resolved:
+
+![sc of resolved issues cause by ci](./images/cipasstests.png)
+
+#### NOTE: how you can see that the CI does indeed run the static bug analyzer, and the stylechecker (ESLint) and does not find any ERRORS with with this current 
+
+![sc of static bug analyzer](./images/cirunstaticbug.png)
+
+![sc of style checker](./images/cirunstylechecker.png)
+
 
 ### Run the Application
 
