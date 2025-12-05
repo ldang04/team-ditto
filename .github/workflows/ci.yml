@@ -53,12 +53,7 @@ jobs:
         continue-on-error: false
 
       - name: Run unit tests
-        run: npm run test:unit:junit
-
-      - name: Convert JUnit XML to HTML
-        if: always()
-        run: |
-          npx junit-viewer --results=reports/jest-junit.xml --save=reports/jest-report.html || echo "JUnit XML conversion failed or file not found"
+        run: npm run test:unit
 
       - name: Upload test results and reports
         uses: actions/upload-artifact@v4
@@ -67,7 +62,6 @@ jobs:
           name: test-results
           path: |
             reports/jest-junit.xml
-            reports/jest-report.html
             reports/static-analysis-report.html
             coverage/
           retention-days: 7
