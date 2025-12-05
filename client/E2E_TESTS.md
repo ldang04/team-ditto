@@ -1,8 +1,54 @@
 # CopyForge End-to-End Test Checklist
 
-This document provides a manual test checklist for verifying the complete client-service integration. Run these tests before each release or demo.
+This document provides both automated and manual test options for verifying the complete client-service integration.
 
-## Prerequisites
+## Automated E2E Tests (Playwright)
+
+We have automated E2E tests using Playwright that cover the core user flows.
+
+### Running Automated Tests
+
+```bash
+# Prerequisites: Start both servers first
+# Terminal 1 (backend): cd .. && npm start
+# Terminal 2 (client): npm run dev
+
+# Run all E2E tests (headless)
+npm run test:e2e
+
+# Run with browser visible
+npm run test:e2e:headed
+
+# Run with interactive UI
+npm run test:e2e:ui
+
+# View test report
+npm run test:e2e:report
+```
+
+### Test Files
+- `e2e/auth.spec.ts` - Account creation, login, API key handling
+- `e2e/brand-setup.spec.ts` - Company/theme setup, campaign creation
+- `e2e/content-generation.spec.ts` - Content writer, chat interface, generation
+
+### Test Coverage
+| Flow | Automated | Manual |
+|------|-----------|--------|
+| Account Creation | Yes | Yes |
+| Login/Logout | Yes | Yes |
+| Brand Setup Wizard | Yes | Yes |
+| Dashboard Navigation | Yes | Yes |
+| Content Generation | Partial | Yes |
+| Image Generation | Partial | Yes |
+| Validation | Partial | Yes |
+
+---
+
+## Manual Test Checklist
+
+For comprehensive testing or when automated tests aren't sufficient, use this manual checklist.
+
+### Prerequisites
 
 - [ ] Ditto API backend is running (locally or on GCP)
 - [ ] CopyForge client is running (`npm run dev`)
