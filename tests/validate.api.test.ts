@@ -1,7 +1,18 @@
 /**
- * Equivalence Partitioning Map (API: Validate Content)
+ * Validate API — Integration Scope + Partitions
  *
- * Inputs under test:
+ * Internal integrations exercised:
+ * - `routes/validate.routes.ts` → `ValidationController` (validate by `content_id` or raw `content` + `project_id`)
+ * - `authMiddleware` for API key validation
+ * - `ProjectController`/`ProjectService` for project creation and theme linking prerequisite
+ * - `ThemeController`/`ThemeService` to provide brand signals for validation
+ * - `EmbeddingService` (mocked here) for embeddings and `cosineSimilarity`
+ * - `logger` (`info`/`error`) instrumentation across middleware and controllers
+ * - `supabaseClient` (mocked) via models/services to read/write entities; `resetMockTables()` in setup
+ *
+ * External integrations: none in this file (EmbeddingService is mocked to avoid provider calls).
+ *
+ * Equivalence Partitioning Map (API: Validate Content)
  * - Authorization header (`Bearer <apiKey>`)
  *   - P1 Valid: Proper `Bearer <validKey>` → 200
  *   - P2 Invalid: Missing header or malformed scheme → 401
@@ -28,7 +39,6 @@ jest.setTimeout(15000);
 (globalThis as any).__cosineSimilarityCallCount = 0;
 
 // Mock EmbeddingService to avoid real API calls
-// Note: Mocks must be at the top level (not inside conditionals) for Jest's hoisting to work.
 jest.mock("../src/services/EmbeddingService", () => {
   // Generate a mock embedding vector (768 dimensions, typical for text embeddings)
   const generateMockEmbedding = () => {
@@ -122,8 +132,6 @@ describe("Validate API", () => {
   beforeEach(() => {
     jest.spyOn(logger, "info").mockImplementation();
     jest.spyOn(logger, "error").mockImplementation();
-    // Note: We don't reset the counter here so it continues across tests
-    // Low-consistency test runs first (calls 0-~10), high-consistency test runs second (calls ~11+)
   });
 
   afterEach(() => {
@@ -132,6 +140,7 @@ describe("Validate API", () => {
 
   describe("POST /api/validate", () => {
     // Valid: raw content + project_id (P1, B1)
+    // Integrations: authMiddleware (P1), ValidationController.validate (raw content path), EmbeddingService (mock), Theme linkage via services, logger.info
     it("validates raw content with project context (P1, B1)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -146,6 +155,7 @@ describe("Validate API", () => {
     });
 
     // Invalid: neither content_id nor (content + project_id) (P1, B2)
+    // Integrations: controller validation rejects; logger.error
     it("rejects when required fields are missing (P1, B2)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -155,6 +165,7 @@ describe("Validate API", () => {
     });
 
     // Not Found: nonexistent project_id (P1, N1)
+    // Integrations: project lookup fails; controller returns 404
     it("returns 404 when project not found (P1, N1)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -167,6 +178,7 @@ describe("Validate API", () => {
     });
 
     // Atypical: very short content or excessive punctuation → 200 with minor issues (P1, T1)
+    // Integrations: validation runs; EmbeddingService mocked; controller returns minor issues
     it("accepts very short content and flags minor issues (P1, T1)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -178,6 +190,7 @@ describe("Validate API", () => {
     });
 
     // Invalid auth: missing header (P2)
+    // Integrations: authMiddleware rejects; controller short-circuits
     it("returns 401 when API key missing (P2)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -186,6 +199,7 @@ describe("Validate API", () => {
     });
 
     // Invalid auth: malformed header (P2)
+    // Integrations: authMiddleware rejects wrong scheme
     it("returns 401 for malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -195,6 +209,7 @@ describe("Validate API", () => {
     });
 
     // Invalid auth: unknown key (P3)
+    // Integrations: authMiddleware verifies signature; rejects unknown key
     it("rejects invalid API key (P3)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -204,6 +219,7 @@ describe("Validate API", () => {
     });
 
     // Boundary: empty token (P4)
+    // Integrations: empty token treated as missing
     it("returns 401 when Bearer token is empty (P4)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -213,6 +229,7 @@ describe("Validate API", () => {
     });
 
     // Atypical auth: extra spaces after Bearer (P3/T3)
+    // Integrations: header parsing fails with extra spaces
     it("rejects Authorization with extra spaces (P3/T3)", async () => {
       const res = await request(app)
         .post("/api/validate")
@@ -222,6 +239,7 @@ describe("Validate API", () => {
     });
 
     // Low vs High brand-consistency scenarios
+    // Integrations: EmbeddingService cosineSimilarity mocked; controller evaluates brand consistency against theme signals
     it("returns very low brand consistency for irrelevant theme vs prompt (P1, B1, S1)", async () => {
       // Create an isolated project with non-tech brand signals to avoid accidental similarity
       const projRes = await request(app)
@@ -273,6 +291,7 @@ describe("Validate API", () => {
     });
 
     it("returns very high brand consistency for strongly aligned theme and prompt (P1, B1, S2)", async () => {
+      // Integrations: EmbeddingService cosineSimilarity mocked; controller evaluates strong alignment
       // Create an isolated project with tech/AI brand signals to boost similarity
       const projRes = await request(app)
         .post("/api/projects/create")

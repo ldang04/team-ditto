@@ -1,11 +1,26 @@
 /**
- * RAGService - Unit tests for advanced RAG techniques
+ * RAGService — Class Test + Integrations Documentation
  *
- * Tests cover:
- * - Core RAG: performRAG with hybrid search
- * - BM25: Keyword-based retrieval with TF-IDF weighting
- * - RRF: Reciprocal Rank Fusion for combining BM25 + semantic scores
- * - MMR: Maximal Marginal Relevance for diversity in results
+ * Scope:
+ * - Exercises multiple non-trivial methods of `RAGService`:
+ *   - performRAG(projectId, userPrompt, theme[, config])
+ *   - computeBM25Scores(query, documents[, params])
+ *   - tokenize(text)
+ *   - reciprocalRankFusion(scores1, scores2[, k])
+ *   - applyMMR(candidates, queryEmbedding, topK[, lambda])
+ * - Uses equivalence partitions and boundaries to validate hybrid retrieval,
+ *   fusion, and diversity selection.
+ *
+ * Integrations:
+ * - Logger: `src/config/logger` — info/error logs for retrieval stages.
+ * - Models: `ContentModel`, `EmbeddingsModel` — project content and stored
+ *   embeddings accessed during retrieval; tests mock their interactions.
+ * - Services: `EmbeddingService` — query/document embeddings and
+ *   `cosineSimilarity`; tests stub these calls to avoid provider access.
+ * - Config/providers: Any embedding provider clients are abstracted behind
+ *   `EmbeddingService`; this class test validates usage, not external APIs.
+ * - Downstream usage: RAG context feeds `PromptEnhancementService` and
+ *   `ContentGenerationPipeline` to enrich prompts and select variants.
  *
  * Equivalence Partitioning Map
  *

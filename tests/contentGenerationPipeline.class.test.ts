@@ -1,5 +1,19 @@
 /**
- * ContentGenerationPipeline - Equivalence partitions and test mapping
+ * ContentGenerationPipeline - Class test (multi-service integration)
+ *
+ * Scope: This file serves as the class-level test for
+ * ContentGenerationPipeline by exercising `execute(input)` end-to-end
+ * with mocked dependencies. It documents how the pipeline integrates
+ * across internal services and verifies composed outputs and metadata.
+ *
+ * Integrations under test:
+ * - ThemeAnalysisService: provides brand analysis used for prompt building and metadata.
+ * - RAGService: supplies retrieval context feeding into prompt enhancement and metadata.
+ * - PromptEnhancementService: composes enhanced prompts using theme + RAG.
+ * - TextGenerationService: generates variants from the enhanced prompt.
+ * - QualityScoringService: scores variants (text/image) and predicts quality.
+ * - ContentAnalysisService: analyzes variants, diversity, and ranks them for metadata.
+ * - Logger: records pipeline stages and decisions.
  *
  * Unit under test:
  * - ContentGenerationPipeline.execute(input)

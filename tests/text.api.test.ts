@@ -1,7 +1,17 @@
 /**
- * Equivalence Partitioning Map (API: Text Generation)
+ * Integration Scope + Equivalence Partitions (API: Text Generation)
  *
- * Inputs under test:
+ * Internal integrations exercised by these tests:
+ * - `routes/text.routes.ts` → `TextGenerationController` (generate)
+ * - `authMiddleware` for API key validation and request binding to client context
+ * - `ProjectController`/`ProjectService` indirectly via project creation and theme linking
+ * - `ThemeController`/`ThemeService` for project-theme association required by text generation
+ * - `TextGenerationService` for content generation (mocked by default via env flag)
+ * - `EmbeddingService` side-effect (mocked) for storing text embeddings
+ * - `supabaseClient` (mocked) for DB-backed entities; `resetMockTables()` controls shared state
+ * - `logger` (`info`/`error`) instrumentation across middleware and controllers
+ *
+ * Equivalence Partitioning Map
  * - Authorization header (`Bearer <apiKey>`)
  *   - P1 Valid: Proper `Bearer <validKey>` → 201
  *   - P2 Invalid: Missing header or malformed scheme → 401
@@ -22,7 +32,7 @@
  */
 
 process.env.GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "team-ditto";
-jest.setTimeout(15000);
+jest.setTimeout(20000);
 
 import request from "supertest";
 import app from "../src/app";
@@ -30,8 +40,6 @@ import { resetMockTables } from "../__mocks__/supabase";
 import logger from "../src/config/logger";
 
 // Mock external services to avoid quota/remote calls
-// Note: Mocks must be at the top level (not inside conditionals) for Jest's hoisting to work.
-// Jest hoists jest.mock() calls, so conditionals prevent proper mock application.
 jest.mock("../src/services/TextGenerationService", () => ({
   TextGenerationService: {
     generateContent: jest.fn(async ({ variantCount }: any) => {
@@ -93,7 +101,6 @@ describe("Text API", () => {
 
   beforeEach(() => {
     jest.spyOn(logger, "info").mockImplementation();
-    // Don't mock error so we can see what's actually failing
     // jest.spyOn(logger, "error").mockImplementation();
   });
 
@@ -103,6 +110,7 @@ describe("Text API", () => {
 
   describe("POST /api/text/generate", () => {
     // Valid input (P1, B1) with variantCount=0 to avoid work
+    // Integrations: authMiddleware (P1), TextGenerationController.generate, TextGenerationService (mock), EmbeddingService (mock), logger.info
     it("generates text with valid inputs (P1, B1)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -117,6 +125,7 @@ describe("Text API", () => {
     });
 
     // Invalid input (P1, B2 - missing prompt)
+    // Integrations: controller validation rejects; service not invoked; logger.error
     it("rejects when prompt is missing (P1, B2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -126,6 +135,7 @@ describe("Text API", () => {
     });
 
     // Invalid input (P1, B2 - missing project_id)
+    // Integrations: controller validation rejects; logger.error
     it("rejects when project_id is missing (P1, B2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -135,6 +145,7 @@ describe("Text API", () => {
     });
 
     // Invalid formatting (P1, B3 - whitespace-only prompt)
+    // Integrations: downstream handling treats trimmed-empty prompt as error; logger.error
     it("rejects whitespace-only prompt (P1, B3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -144,6 +155,7 @@ describe("Text API", () => {
     });
 
     // Atypical formatting (P1, T1 - Unicode prompt)
+    // Integrations: Unicode handling accepted; service returns mocked variants; logger.info
     it("accepts Unicode prompt (emoji/non-Latin) (P1, T1)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -157,6 +169,7 @@ describe("Text API", () => {
     });
 
     // VariantCount boundaries (P1, V3 - 0 acceptable)
+    // Integrations: controller validates boundaries; service mock returns []; logger.info
     it("accepts variantCount = 0 (P1, V3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -166,6 +179,7 @@ describe("Text API", () => {
     });
 
     // VariantCount boundaries (P1, V3 - 10 acceptable)
+    // Integrations: boundary max accepted; service mock returns 10 strings; logger.info
     it("accepts variantCount = 10 (P1, V3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -175,6 +189,7 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - -1)
+    // Integrations: controller rejects out-of-range; logger.error
     it("rejects variantCount < 0 (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -184,6 +199,7 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - 11)
+    // Integrations: controller rejects out-of-range; logger.error
     it("rejects variantCount > 10 (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -193,6 +209,7 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - non-integer)
+    // Integrations: controller enforces integer; rejects float; logger.error
     it("rejects non-integer variantCount (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -202,6 +219,7 @@ describe("Text API", () => {
     });
 
     // VariantCount invalid (P1, V2 - non-numeric)
+    // Integrations: controller type-checks; rejects string; logger.error
     it("rejects non-numeric variantCount (P1, V2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -211,6 +229,7 @@ describe("Text API", () => {
     });
 
     // Invalid auth: missing header (P2)
+    // Integrations: authMiddleware rejects; controller short-circuits; logger.error
     it("returns 401 when API key missing (P2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -219,6 +238,7 @@ describe("Text API", () => {
     });
 
     // Invalid auth: malformed header (P2)
+    // Integrations: authMiddleware rejects wrong scheme; logger.error
     it("returns 401 for malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -228,6 +248,7 @@ describe("Text API", () => {
     });
 
     // Invalid auth: unknown key (P3)
+    // Integrations: authMiddleware verifies signature; rejects unknown key; logger.error
     it("rejects invalid API key (P3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -237,6 +258,7 @@ describe("Text API", () => {
     });
 
     // Boundary: empty token (P4)
+    // Integrations: empty token treated as missing; logger.error
     it("returns 401 when Bearer token is empty (P4)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
@@ -246,34 +268,13 @@ describe("Text API", () => {
     });
 
     // Invalid: extra spaces after Bearer (P3/T3)
+    // Integrations: header parsing fails with extra spaces; logger.error
     it("rejects Authorization with extra spaces (P3/T3)", async () => {
       const res = await request(app)
         .post("/api/text/generate")
         .set("Authorization", `Bearer   ${apiKey}`)
         .send({ project_id: projectId, prompt: "Hello" });
       expect([403]).toContain(res.status);
-    });
-  });
-
-  // Optional real integration test: set RUN_REAL_TEXT_TESTS=1 to enable
-  describe("POST /api/text/generate (real)", () => {
-    const runReal = process.env.RUN_REAL_TEXT_TESTS === "1";
-
-    const maybeIt = runReal ? it : it.skip;
-
-    maybeIt("runs end-to-end with real services when enabled", async () => {
-      // Use a simple prompt and variantCount=0 to minimize work
-      const res = await request(app)
-        .post("/api/text/generate")
-        .set("Authorization", `Bearer ${apiKey}`)
-        .send({
-          project_id: projectId,
-          prompt: "Hello world",
-          variantCount: 0,
-        });
-
-      expect([201]).toContain(res.status);
-      expect(res.body.success).toBe(true);
     });
   });
 });

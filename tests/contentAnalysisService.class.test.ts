@@ -1,5 +1,15 @@
 /**
- * ContentAnalysisService - Unit tests for marketing analysis features
+ * ContentAnalysisService - Class and unit tests for marketing analysis
+ *
+ * Scope: This file acts as the class test for ContentAnalysisService by
+ * exercising multiple public methods together, and also provides detailed
+ * unit coverage for each method.
+ *
+ * Class integrations documented:
+ * - Logger (src/config/logger): info/error logging during analysis and ranking
+ * - EmbeddingService (src/services/EmbeddingService): semantic diversity via embeddings
+ * - Theme (src/types): brand keyword extraction used in keyword density
+ * - Internal composition: analyzeContent → readability + tone + keyword_density + structure
  *
  * Tests cover:
  * - Marketing readability (power words, CTAs, scannability)
@@ -7,6 +17,7 @@
  * - Keyword density
  * - Semantic diversity (with EmbeddingService mocked)
  * - Variant ranking with configurable weights
+ * - analyzeContent composition (integration across methods)
  *
  * Equivalence Partitioning Map (Unit: ContentAnalysisService)
  *
