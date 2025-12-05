@@ -133,6 +133,70 @@ In another terminal:
 npm run api:test
 ```
 
+#### End-to-End (E2E) Client/Service Tests:
+
+We provide **automated Playwright E2E tests** that exercise the full client → service integration with real resources (no mocks). These tests verify the complete flow: Browser → React Client → Express Backend → Supabase + Vertex AI.
+
+**Automated E2E Test Coverage:**
+- 42 automated tests across 3 test suites
+- Tests use real database (Supabase) and real AI (Vertex AI)
+- Playwright auto-starts both backend and frontend servers
+
+**To run automated E2E tests:**
+
+```bash
+cd client
+npm run test:e2e
+```
+
+The Playwright config (`client/playwright.config.ts`) automatically:
+1. Starts the backend server on port 3000
+2. Starts the client dev server on port 5173
+3. Runs all tests in Chromium
+4. Generates HTML reports in `client/e2e-report/`
+
+**Automated Test Suites:**
+| Suite | Tests | Description |
+|-------|-------|-------------|
+| Authentication | 9 | Account creation, API key display, login validation |
+| Brand Setup | 13 | Onboarding wizard, theme/campaign creation, dashboard |
+| Content Generation | 20 | AI text generation, validation, chat interface, image options |
+
+**E2E Architecture:**
+```
+Browser (Playwright) → React Client (:5173) → Express Backend (:3000) → Supabase + Vertex AI
+```
+
+**Manual E2E Testing:**
+
+For additional manual testing, we also provide a comprehensive checklist:
+
+1. Start the backend server:
+   ```bash
+   npm start
+   ```
+
+2. Start the client (in `client/` directory):
+   ```bash
+   cd client && npm run dev
+   ```
+
+3. Follow the checklist in [`client/E2E_TESTS.md`](client/E2E_TESTS.md)
+
+**Manual Test Suites:**
+| Suite | Tests | Description |
+|-------|-------|-------------|
+| Account Creation | 5 | New user registration, API key generation |
+| Login | 4 | Existing user auth, invalid key handling |
+| Brand Setup | 8 | Onboarding wizard, theme/campaign creation |
+| Campaign Dashboard | 5 | Listing, creation, navigation |
+| Text Generation | 10 | AI generation with RAG, validation display |
+| Image Generation | 5 | Image generation with metrics |
+| Content Library | 5 | Browsing, filtering, search |
+| Settings | 5 | API key display, theme management |
+| Multi-Client Isolation | 7 | Data isolation between clients |
+| Edge Cases | 5 | Error handling, network failures |
+
 **Logging Verification:** 
 Our service uses the Winston logger to record both informational and error logs for every API request.
 
@@ -181,6 +245,8 @@ team-ditto/
 │   └── index.ts             # Server entry point
 ├── client/                   # Client application (React)
 │   ├── src/                 # Client source code
+│   ├── e2e/                 # Playwright E2E tests
+│   ├── playwright.config.ts # Playwright configuration
 │   ├── package.json         # Client dependencies
 │   └── README.md            # Client documentation
 ├── tests/                    # Test files
