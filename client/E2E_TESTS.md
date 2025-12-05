@@ -234,21 +234,26 @@ POST /api/validate - 200 (x3)
 
 To run E2E tests against the GCP-deployed Ditto API:
 
-1. Update `vite.config.ts` to point to your GCP service URL:
+1. Update `vite.config.ts` to point to the GCP service URL:
    ```typescript
    proxy: {
      '/api': {
-       target: 'https://your-gcp-service-url.run.app',
+       target: 'https://team-ditto-1023593524929.europe-west1.run.app',
        changeOrigin: true,
      },
    },
    ```
 
-2. Restart the client (`npm run dev`)
+2. Run automated tests with the `USE_GCP` flag:
+   ```bash
+   USE_GCP=true npm run test:e2e
+   ```
+   This skips starting the local backend server (since we're using GCP).
 
-3. Run automated tests (`npm run test:e2e`) or follow manual checklist above
-
-4. Verify latency is acceptable (generation may take longer over network)
+3. Or for manual testing, start the client and follow the checklist:
+   ```bash
+   npm run dev
+   ```
 
 > **Warning:** E2E tests create real data in the database. Use a staging/test Supabase project rather than production.
 

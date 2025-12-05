@@ -202,22 +202,24 @@ For additional manual testing, we also provide a comprehensive checklist:
 
 To run E2E tests against the cloud-deployed service:
 
-1. Update `client/vite.config.ts` to point to your GCP service URL:
+1. Update `client/vite.config.ts` to point to the GCP service URL:
    ```typescript
    proxy: {
      '/api': {
-       target: 'https://your-gcp-service-url.run.app',
+       target: 'https://team-ditto-1023593524929.europe-west1.run.app',
        changeOrigin: true,
      },
    },
    ```
 
-2. Start the client locally:
+2. Run automated tests with the `USE_GCP` flag:
    ```bash
-   cd client && npm run dev
+   cd client
+   USE_GCP=true npm run test:e2e
    ```
+   This skips starting the local backend server (since we're using GCP).
 
-3. Run automated tests or follow the manual checklist in [`client/E2E_TESTS.md`](client/E2E_TESTS.md)
+3. Or for manual testing, start the client and follow the checklist in [`client/E2E_TESTS.md`](client/E2E_TESTS.md)
 
 > **Warning:** E2E tests create real data (accounts, campaigns, content) in the database. Use a staging/test Supabase project and test accounts rather than production data. Each test run generates unique timestamps to avoid conflicts.
 
