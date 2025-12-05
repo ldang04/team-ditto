@@ -162,6 +162,13 @@ server: {
 +----------------------------------------------------------+
 ```
 
+### Client Authentication Model (Clarification for Service Architecture)
+
+Each API key represents a client application instance, not an individual end user.
+In a production deployment, the client would securely store its API key in server-side configuration (environment variables or backend storage).
+The current UI-based API key entry is provided strictly for demonstration, testing, and ease of deployment during the course project.
+
+
 ## Project Structure
 
 ```
