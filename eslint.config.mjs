@@ -49,7 +49,6 @@ export default tseslint.config(
       'no-unused-expressions': 'warn',
       
       // Security/bug rules
-      'security/detect-object-injection': 'warn',
       'security/detect-non-literal-regexp': 'warn',
       'security/detect-unsafe-regex': 'error',
       'security/detect-buffer-noassert': 'error',

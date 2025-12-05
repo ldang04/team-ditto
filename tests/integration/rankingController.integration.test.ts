@@ -131,7 +131,6 @@ describe("Ranking Controller Integration", () => {
         Number(item.overall_score)
       );
       for (let i = 0; i < scores.length - 1; i++) {
-        // eslint-disable-next-line security/detect-object-injection
         expect(scores[i]).toBeGreaterThanOrEqual(scores[i + 1]);
       }
     }

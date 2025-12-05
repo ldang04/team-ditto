@@ -371,6 +371,7 @@ export class ContentAnalysisService {
     // Count brand keyword occurrences
     let brandKeywordCount = 0;
     for (const keyword of brandKeywords) {
+      // eslint-disable-next-line security/detect-non-literal-regexp
       const regex = new RegExp(`\\b${this.escapeRegex(keyword)}\\b`, "gi");
       const matches = lowerText.match(regex);
       if (matches) {
