@@ -165,7 +165,7 @@ Here is an example of CI catching an error through Unit tests:
 ![sc of one ci report](./images/ciutestf1.png)
 
 
-Another image of the same issue
+Another image of the same issue:
 
 ![sc of anotehr ci report](./images/ciutestsf2.png)
 
