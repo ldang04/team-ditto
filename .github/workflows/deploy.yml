@@ -32,19 +32,19 @@ jobs:
       
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto-api' }} \
+          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto' }} \
             --source . \
             --platform managed \
-            --region ${{ secrets.CLOUD_RUN_REGION || 'us-central1' }} \
+            --region ${{ secrets.CLOUD_RUN_REGION || 'europe-west1' }} \
             --allow-unauthenticated \
-            --set-env-vars NODE_ENV=production,GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},GCP_LOCATION=${{ secrets.CLOUD_RUN_REGION || 'us-central1' }} \
+            --set-env-vars NODE_ENV=production,GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},GCP_LOCATION=${{ secrets.CLOUD_RUN_REGION || 'europe-west1' }} \
             --project ${{ secrets.GCP_PROJECT_ID }}
       
       - name: Show deployment URL
         run: |
-          SERVICE_URL=$(gcloud run services describe ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto-api' }} \
+          SERVICE_URL=$(gcloud run services describe ${{ secrets.CLOUD_RUN_SERVICE_NAME || 'team-ditto' }} \
             --platform managed \
-            --region ${{ secrets.CLOUD_RUN_REGION || 'us-central1' }} \
+            --region ${{ secrets.CLOUD_RUN_REGION || 'europe-west1' }} \
             --project ${{ secrets.GCP_PROJECT_ID }} \
             --format 'value(status.url)')
           echo "Deployment successful!"
