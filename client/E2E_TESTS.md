@@ -9,11 +9,7 @@ We have automated E2E tests using Playwright that cover the core user flows.
 ### Running Automated Tests
 
 ```bash
-# Prerequisites: Start both servers first
-# Terminal 1 (backend): cd .. && npm start
-# Terminal 2 (client): npm run dev
-
-# Run all E2E tests (headless)
+# Run all E2E tests (servers auto-start via playwright.config.ts)
 npm run test:e2e
 
 # Run with browser visible
@@ -26,21 +22,21 @@ npm run test:e2e:ui
 npm run test:e2e:report
 ```
 
+> **Note:** The Playwright config automatically starts both the backend (port 3000) and frontend (port 5173) servers. No manual server startup required.
+
 ### Test Files
 - `e2e/auth.spec.ts` - Account creation, login, API key handling
 - `e2e/brand-setup.spec.ts` - Company/theme setup, campaign creation
 - `e2e/content-generation.spec.ts` - Content writer, chat interface, generation
 
-### Test Coverage
-| Flow | Automated | Manual |
-|------|-----------|--------|
-| Account Creation | Yes | Yes |
-| Login/Logout | Yes | Yes |
-| Brand Setup Wizard | Yes | Yes |
-| Dashboard Navigation | Yes | Yes |
-| Content Generation | Partial | Yes |
-| Image Generation | Partial | Yes |
-| Validation | Partial | Yes |
+### Automated Test Coverage (42 tests)
+| File | Tests | Coverage |
+|------|-------|----------|
+| `auth.spec.ts` | 9 | Account creation, API key display, login validation |
+| `brand-setup.spec.ts` | 13 | Onboarding wizard, theme/campaign creation, dashboard |
+| `content-generation.spec.ts` | 20 | Text generation, chat interface, validation, image options |
+
+*Playwright tests were developed with assistance from Claude (Anthropic)*
 
 ---
 
@@ -238,18 +234,28 @@ POST /api/validate - 200 (x3)
 
 To run E2E tests against the GCP-deployed Ditto API:
 
-1. Update `vite.config.ts` with the GCP URL
+1. Update `vite.config.ts` to point to your GCP service URL:
+   ```typescript
+   proxy: {
+     '/api': {
+       target: 'https://your-gcp-service-url.run.app',
+       changeOrigin: true,
+     },
+   },
+   ```
+
 2. Restart the client (`npm run dev`)
-3. Run through all tests above
-4. Verify latency is acceptable (generation may take longer)
+
+3. Run automated tests (`npm run test:e2e`) or follow manual checklist above
+
+4. Verify latency is acceptable (generation may take longer over network)
+
+> **Warning:** E2E tests create real data in the database. Use a staging/test Supabase project rather than production.
 
 ---
 
-## Automated Test Considerations
+## Notes
 
-While these tests are manual, key flows could be automated using:
-- **Playwright** or **Cypress** for browser automation
-- **Jest + React Testing Library** for component tests
-- Mock API responses for faster CI/CD runs
-
-Future work: Convert critical paths (Tests 1, 3, 5) to automated tests.
+- Automated Playwright tests now cover the critical user flows (authentication, brand setup, content generation)
+- Manual tests remain useful for edge cases and exploratory testing
+- Tests use real Supabase and Vertex AI - use staging/test data
