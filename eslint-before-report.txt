@@ -1,0 +1,65 @@
+
+> ditto@1.0.0 lint
+> eslint "{src,tests}/**/*.{ts,tsx}"
+
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/controllers/ImageGenerationController.ts
+  250:21  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ContentAnalysisService.ts
+  374:21  warning  Found non-literal argument to RegExp Constructor  security/detect-non-literal-regexp
+  468:13  warning  Function Call Object Injection Sink               security/detect-object-injection
+  469:13  warning  Function Call Object Injection Sink               security/detect-object-injection
+  549:51  warning  Function Call Object Injection Sink               security/detect-object-injection
+  549:64  warning  Function Call Object Injection Sink               security/detect-object-injection
+  623:24  warning  Variable Assigned to Object Injection Sink        security/detect-object-injection
+  624:27  warning  Variable Assigned to Object Injection Sink        security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ContentGenerationPipeline.ts
+  252:29  warning  Generic Object Injection Sink  security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/EmbeddingService.ts
+  316:21  warning  Generic Object Injection Sink  security/detect-object-injection
+  316:31  warning  Generic Object Injection Sink  security/detect-object-injection
+  318:15  warning  Generic Object Injection Sink  security/detect-object-injection
+  318:25  warning  Generic Object Injection Sink  security/detect-object-injection
+  319:15  warning  Generic Object Injection Sink  security/detect-object-injection
+  319:25  warning  Generic Object Injection Sink  security/detect-object-injection
+  358:7   warning  Generic Object Injection Sink  security/detect-object-injection
+  366:7   warning  Generic Object Injection Sink  security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/RAGService.ts
+  173:20  warning  Generic Object Injection Sink               security/detect-object-injection
+  174:24  warning  Generic Object Injection Sink               security/detect-object-injection
+  175:22  warning  Generic Object Injection Sink               security/detect-object-injection
+  364:29  warning  Generic Object Injection Sink               security/detect-object-injection
+  365:29  warning  Generic Object Injection Sink               security/detect-object-injection
+  420:28  warning  Generic Object Injection Sink               security/detect-object-injection
+  431:27  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
+  476:11  warning  Generic Object Injection Sink               security/detect-object-injection
+  477:11  warning  Generic Object Injection Sink               security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/StorageService.ts
+  143:12  warning  Generic Object Injection Sink  security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ThemeAnalysisService.ts
+  136:25  warning  Generic Object Injection Sink  security/detect-object-injection
+  270:7   warning  Generic Object Injection Sink  security/detect-object-injection
+
+/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/tests/ragService.class.test.ts
+  151:18  warning  Generic Object Injection Sink        security/detect-object-injection
+  151:25  warning  Generic Object Injection Sink        security/detect-object-injection
+  152:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  152:24  warning  Generic Object Injection Sink        security/detect-object-injection
+  153:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  153:24  warning  Generic Object Injection Sink        security/detect-object-injection
+  509:16  warning  Function Call Object Injection Sink  security/detect-object-injection
+  763:18  warning  Generic Object Injection Sink        security/detect-object-injection
+  763:25  warning  Generic Object Injection Sink        security/detect-object-injection
+  764:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  764:24  warning  Generic Object Injection Sink        security/detect-object-injection
+  765:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  765:24  warning  Generic Object Injection Sink        security/detect-object-injection
+
+✖ 42 problems (0 errors, 42 warnings)
+
