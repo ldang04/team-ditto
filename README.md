@@ -4,6 +4,7 @@ An intelligent API service that generates and validates marketing content using 
 
 ## Table of Contents
 - [Getting Started](#getting-started)
+- [Client Application](#client-application)
 - [API Documentation](#api-documentation)
 - [Style Checker](#style-checker)
 - [Tools & Testing](#tools--testing)
@@ -167,7 +168,7 @@ This generates:
 
 ```
 team-ditto/
-├── src/                      # Source code
+├── src/                      # API service source code
 │   ├── controllers/          # Request handlers
 │   ├── models/              # Database models
 │   ├── routes/              # API routes
@@ -178,6 +179,10 @@ team-ditto/
 │   ├── utils/               # Utility functions
 │   ├── app.ts               # Express app configuration
 │   └── index.ts             # Server entry point
+├── client/                   # Client application (React)
+│   ├── src/                 # Client source code
+│   ├── package.json         # Client dependencies
+│   └── README.md            # Client documentation
 ├── tests/                    # Test files
 ├── postman/                  # Postman collection and environment
 ├── reports/                  # Generated test reports
@@ -190,6 +195,220 @@ team-ditto/
 ├── eslint.config.js         # ESLint configuration
 └── README.md                # This file
 ```
+
+---
+
+## Client Application
+
+### Where to Find the Client Code
+
+The client application code is located in the `client/` directory of this repository. This is a React-based web application that provides a user interface for interacting with the Ditto Content API.
+
+### What the Client Does
+
+**LinkLaunch** is a LinkedIn marketing campaign builder that helps professionals create engaging LinkedIn posts with AI-generated text and images. The client application:
+
+- Provides a user-friendly interface for creating and managing marketing campaigns
+- Generates LinkedIn-optimized content using the Ditto Content API
+- Validates content against brand guidelines
+- Manages drafts and content libraries
+- Displays LinkedIn-style previews of generated content
+
+For detailed information about the client's features and functionality, see the [client README](client/README.md).
+
+### Building and Running the Client
+
+#### Prerequisites
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn**
+- **Ditto API service** running (either locally at `http://localhost:3000` or deployed)
+
+#### Installation
+
+1. Navigate to the client directory:
+   ```bash
+   cd client
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+#### Running the Client
+
+**Development Mode:**
+
+1. Start the Ditto API service (from project root):
+   ```bash
+   npm start
+   ```
+
+2. Start the client (from `client/` directory):
+   ```bash
+   npm run dev
+   ```
+
+3. Open `http://localhost:5173` in your browser
+
+**Production Build:**
+
+```bash
+cd client
+npm run build
+```
+
+The production build will be in the `client/dist/` directory.
+
+### Connecting Client Instances to the Service
+
+#### Local Development
+
+By default, the client is configured to connect to a locally running API service at `http://localhost:3000`. The client uses a Vite proxy configuration (in `client/vite.config.ts`) to forward API requests to the backend.
+
+#### Connecting to a Cloud-Deployed API
+
+To connect a client instance to a cloud-deployed API service, modify `client/vite.config.ts`:
+
+```typescript
+server: {
+  proxy: {
+    '/api': {
+      target: 'https://your-gcp-service-url.run.app',
+      changeOrigin: true,
+    },
+  },
+}
+```
+
+#### Multiple Client Instances
+
+**You can run multiple client instances simultaneously.** Each client instance:
+
+- Can run on any local machine (does not need to run in the cloud)
+- Must have its own unique API key (obtained via `/api/clients/create`)
+- Stores its API key in browser localStorage
+- Can connect to the same API service instance
+
+**Example:** You can run:
+- Client instance 1 on `localhost:5173` (API key: `key-abc-123`)
+- Client instance 2 on `localhost:5174` (API key: `key-xyz-789`)
+- Client instance 3 on a different machine (API key: `key-def-456`)
+
+All three can connect to the same API service running at `localhost:3000` or a cloud deployment.
+
+### How the Service Handles Multiple Client Instances
+
+The Ditto API service is designed to handle multiple client instances running simultaneously. Here's how it works:
+
+#### Client Identification via API Keys
+
+1. **Each client instance gets a unique API key:**
+   - When a client first starts, it calls `/api/clients/create` (no authentication required)
+   - The service creates a new client record in the database and generates a unique API key
+   - The API key is returned to the client and stored in browser localStorage
+
+2. **API key maps to client_id:**
+   - The service maintains an `api_keys` table that maps API keys to `client_id`
+   - Every authenticated request includes the API key in the `Authorization: Bearer <api_key>` header
+   - The service's authentication middleware looks up the API key to determine the `client_id`
+
+3. **Data isolation by client_id:**
+   - All database tables (projects, themes, contents, etc.) include a `client_id` column
+   - Every query filters results by `client_id` to ensure data isolation
+   - Client A's projects, themes, and content are completely separate from Client B's data
+
+#### Multi-Client Architecture
+
+```
+┌─────────────────┐
+│  Client Instance 1 │  (API Key: key-abc-123)
+│  localhost:5173   │
+└────────┬──────────┘
+         │
+         │ Authorization: Bearer key-abc-123
+         │
+         ▼
+┌─────────────────────────────────────┐
+│      Ditto API Service               │
+│      localhost:3000                  │
+│                                      │
+│  ┌──────────────────────────────┐  │
+│  │  Authentication Middleware    │  │
+│  │  - Validates API key          │  │
+│  │  - Extracts client_id         │  │
+│  └──────────────┬─────────────────┘  │
+│                 │                      │
+│  ┌──────────────▼─────────────────┐  │
+│  │  Database Queries              │  │
+│  │  - Filter by client_id         │  │
+│  │  - Data isolation enforced     │  │
+│  └────────────────────────────────┘  │
+└─────────────────────────────────────┘
+         ▲
+         │
+         │ Authorization: Bearer key-xyz-789
+         │
+┌────────┴──────────┐
+│  Client Instance 2 │  (API Key: key-xyz-789)
+│  localhost:5174   │
+└───────────────────┘
+```
+
+#### How the Service Tells Clients Apart
+
+The service distinguishes between clients using a three-layer identification system:
+
+1. **API Key Authentication:**
+   - Each request includes `Authorization: Bearer <api_key>` header
+   - The service validates the API key against the `api_keys` table
+   - Invalid or missing API keys return `401 Unauthorized` or `403 Forbidden`
+
+2. **Client ID Extraction:**
+   - Valid API keys map to a unique `client_id` in the database
+   - The authentication middleware extracts and attaches `client_id` to the request object
+   - All subsequent database operations use this `client_id`
+
+3. **Database-Level Isolation:**
+   - Every table includes a `client_id` foreign key
+   - All SELECT queries include `WHERE client_id = ?` filters
+   - All INSERT operations automatically include the authenticated `client_id`
+   - This ensures complete data isolation between clients
+
+**Example Flow:**
+
+```typescript
+// Client Instance 1 makes request
+GET /api/projects
+Authorization: Bearer key-abc-123
+
+// Service authentication middleware:
+1. Validates key-abc-123 → finds client_id = "client-1"
+2. Attaches client_id to request object
+
+// Database query:
+SELECT * FROM projects WHERE client_id = 'client-1'
+// Returns only Client 1's projects
+
+// Client Instance 2 makes request
+GET /api/projects
+Authorization: Bearer key-xyz-789
+
+// Service authentication middleware:
+1. Validates key-xyz-789 → finds client_id = "client-2"
+2. Attaches client_id to request object
+
+// Database query:
+SELECT * FROM projects WHERE client_id = 'client-2'
+// Returns only Client 2's projects (completely separate data)
+```
+
+This architecture ensures that:
+- Multiple client instances can run simultaneously without conflicts
+- Each client only sees and can only access their own data
+- The service can handle unlimited concurrent client connections
+- Client instances can run on any machine (local or cloud) and connect to the same service
 
 ---
 

@@ -1,10 +1,8 @@
-# LinkedIn Post Writer - AI-Powered LinkedIn Content Creator
+# LinkLaunch - LinkedIn Marketing Campaign Builder.
 
-LinkedIn Post Writer is a focused content creation tool that helps professionals create engaging LinkedIn posts with AI-generated text and images. It uses the **Ditto Content API** as its AI backbone.
+LinkLaunch is a focused content creation tool and assistant that helps professionals create engaging LinkedIn marketing posts with AI-generated text and images. It uses the **Ditto Content API** as its AI backbone.
 
-## What Makes This a REAL Client (Not a UI Wrapper)
-
-This is **NOT** a simple API wrapper. It demonstrates genuine client-side functionality:
+## Client-side functionality
 
 ### 1. Multi-Step Content Generation Pipeline
 The Create page orchestrates **3 sequential API calls** per post:
