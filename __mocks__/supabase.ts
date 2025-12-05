@@ -104,6 +104,12 @@ export const supabase = {
           return promise;
         },
 
+        in: (field: string, values: any[]) => {
+          const set = new Set(values ?? []);
+          const filtered = store.filter((r) => set.has(r[field]));
+          return makeResponse(filtered, null);
+        },
+
         async single() {
           return makeResponse(store.length ? store[0] : null, null);
         },

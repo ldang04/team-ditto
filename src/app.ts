@@ -6,12 +6,15 @@ import contentsRouter from "./routes/contentRoutes";
 import textRouter from "./routes/textRoutes";
 import imageRouter from "./routes/imageRoutes";
 import validationRouter from "./routes/validationRoutes";
+import rankingRouter from "./routes/rankingRoutes";
 import { HealthController } from "./controllers/HealthController";
 
 const app = express();
-app.use(express.json());
+// Increase JSON body limit for base64 image uploads (default is 100kb)
+app.use(express.json({ limit: '50mb' }));
 
-// Health check route (public)
+// Health check routes (public)
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.get("/api/vertex-test", HealthController.testVertex);
 
 // Public routes
@@ -26,5 +29,6 @@ app.use("/api", contentsRouter);
 app.use("/api/text", textRouter);
 app.use("/api/images", imageRouter);
 app.use("/api/validate", validationRouter);
+app.use("/api/rank", rankingRouter);
 
 export default app;
