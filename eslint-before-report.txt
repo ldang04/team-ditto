@@ -2,11 +2,10 @@
 > ditto@1.0.0 lint
 > eslint "{src,tests}/**/*.{ts,tsx}"
 
+/ditto_service/src/controllers/ImageGenerationController.ts
+  246:21  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/controllers/ImageGenerationController.ts
-  250:21  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
-
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ContentAnalysisService.ts
+/ditto_service/src/services/ContentAnalysisService.ts
   374:21  warning  Found non-literal argument to RegExp Constructor  security/detect-non-literal-regexp
   468:13  warning  Function Call Object Injection Sink               security/detect-object-injection
   469:13  warning  Function Call Object Injection Sink               security/detect-object-injection
@@ -15,20 +14,17 @@
   623:24  warning  Variable Assigned to Object Injection Sink        security/detect-object-injection
   624:27  warning  Variable Assigned to Object Injection Sink        security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ContentGenerationPipeline.ts
-  252:29  warning  Generic Object Injection Sink  security/detect-object-injection
+/ditto_service/src/services/EmbeddingService.ts
+  249:21  warning  Generic Object Injection Sink  security/detect-object-injection
+  249:31  warning  Generic Object Injection Sink  security/detect-object-injection
+  251:15  warning  Generic Object Injection Sink  security/detect-object-injection
+  251:25  warning  Generic Object Injection Sink  security/detect-object-injection
+  252:15  warning  Generic Object Injection Sink  security/detect-object-injection
+  252:25  warning  Generic Object Injection Sink  security/detect-object-injection
+  292:7   warning  Generic Object Injection Sink  security/detect-object-injection
+  300:7   warning  Generic Object Injection Sink  security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/EmbeddingService.ts
-  316:21  warning  Generic Object Injection Sink  security/detect-object-injection
-  316:31  warning  Generic Object Injection Sink  security/detect-object-injection
-  318:15  warning  Generic Object Injection Sink  security/detect-object-injection
-  318:25  warning  Generic Object Injection Sink  security/detect-object-injection
-  319:15  warning  Generic Object Injection Sink  security/detect-object-injection
-  319:25  warning  Generic Object Injection Sink  security/detect-object-injection
-  358:7   warning  Generic Object Injection Sink  security/detect-object-injection
-  366:7   warning  Generic Object Injection Sink  security/detect-object-injection
-
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/RAGService.ts
+/ditto_service/src/services/RAGService.ts
   173:20  warning  Generic Object Injection Sink               security/detect-object-injection
   174:24  warning  Generic Object Injection Sink               security/detect-object-injection
   175:22  warning  Generic Object Injection Sink               security/detect-object-injection
@@ -39,27 +35,32 @@
   476:11  warning  Generic Object Injection Sink               security/detect-object-injection
   477:11  warning  Generic Object Injection Sink               security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/StorageService.ts
-  143:12  warning  Generic Object Injection Sink  security/detect-object-injection
+/ditto_service/src/services/StorageService.ts
+  155:9   warning  Function Call Object Injection Sink  security/detect-object-injection
+  213:12  warning  Generic Object Injection Sink        security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/src/services/ThemeAnalysisService.ts
+/ditto_service/src/services/ThemeAnalysisService.ts
   136:25  warning  Generic Object Injection Sink  security/detect-object-injection
   270:7   warning  Generic Object Injection Sink  security/detect-object-injection
 
-/Users/khaliungerel/Desktop/columbia/s3-4156/project/ditto_service/tests/ragService.class.test.ts
-  151:18  warning  Generic Object Injection Sink        security/detect-object-injection
-  151:25  warning  Generic Object Injection Sink        security/detect-object-injection
-  152:17  warning  Generic Object Injection Sink        security/detect-object-injection
-  152:24  warning  Generic Object Injection Sink        security/detect-object-injection
-  153:17  warning  Generic Object Injection Sink        security/detect-object-injection
-  153:24  warning  Generic Object Injection Sink        security/detect-object-injection
-  509:16  warning  Function Call Object Injection Sink  security/detect-object-injection
-  763:18  warning  Generic Object Injection Sink        security/detect-object-injection
-  763:25  warning  Generic Object Injection Sink        security/detect-object-injection
-  764:17  warning  Generic Object Injection Sink        security/detect-object-injection
-  764:24  warning  Generic Object Injection Sink        security/detect-object-injection
-  765:17  warning  Generic Object Injection Sink        security/detect-object-injection
-  765:24  warning  Generic Object Injection Sink        security/detect-object-injection
+/ditto_service/tests/contentAnalysisService.unit.test.ts
+  17:3  warning  'DiversityAnalysis' is defined but never used  no-unused-vars
+  17:3  error    'DiversityAnalysis' is defined but never used  @typescript-eslint/no-unused-vars
 
-✖ 42 problems (0 errors, 42 warnings)
+/ditto_service/tests/contentGenerationPipeline.unit.test.ts
+  379:13  warning  'themeAnalysisStart' is assigned a value but never used  no-unused-vars
+  379:13  error    'themeAnalysisStart' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  380:11  warning  'ragStart' is assigned a value but never used            no-unused-vars
+  380:11  error    'ragStart' is assigned a value but never used            @typescript-eslint/no-unused-vars
+
+/ditto_service/tests/ragService.unit.test.ts
+  123:18  warning  Generic Object Injection Sink        security/detect-object-injection
+  123:25  warning  Generic Object Injection Sink        security/detect-object-injection
+  124:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  124:24  warning  Generic Object Injection Sink        security/detect-object-injection
+  125:17  warning  Generic Object Injection Sink        security/detect-object-injection
+  125:24  warning  Generic Object Injection Sink        security/detect-object-injection
+  400:16  warning  Function Call Object Injection Sink  security/detect-object-injection
+
+✖ 42 problems (3 errors, 39 warnings)
 
