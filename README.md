@@ -141,6 +141,7 @@ We provide **automated Playwright E2E tests** that exercise the full client → 
 - 42 automated tests across 3 test suites
 - Tests use real database (Supabase) and real AI (Vertex AI)
 - Playwright auto-starts both backend and frontend servers
+- *Playwright tests were developed with assistance from Claude (Anthropic)*
 
 **To run automated E2E tests:**
 
@@ -196,6 +197,29 @@ For additional manual testing, we also provide a comprehensive checklist:
 | Settings | 5 | API key display, theme management |
 | Multi-Client Isolation | 7 | Data isolation between clients |
 | Edge Cases | 5 | Error handling, network failures |
+
+**E2E Testing Against GCP Deployment:**
+
+To run E2E tests against the cloud-deployed service:
+
+1. Update `client/vite.config.ts` to point to your GCP service URL:
+   ```typescript
+   proxy: {
+     '/api': {
+       target: 'https://your-gcp-service-url.run.app',
+       changeOrigin: true,
+     },
+   },
+   ```
+
+2. Start the client locally:
+   ```bash
+   cd client && npm run dev
+   ```
+
+3. Run automated tests or follow the manual checklist in [`client/E2E_TESTS.md`](client/E2E_TESTS.md)
+
+> **Warning:** E2E tests create real data (accounts, campaigns, content) in the database. Use a staging/test Supabase project and test accounts rather than production data. Each test run generates unique timestamps to avoid conflicts.
 
 **Logging Verification:** 
 Our service uses the Winston logger to record both informational and error logs for every API request.
