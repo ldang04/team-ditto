@@ -1,7 +1,14 @@
 /**
- * Equivalence Partitioning Map (API: Themes)
+ * Integration Scope + Equivalence Partitions (API: Themes)
  *
- * Inputs under test:
+ * Internal integrations exercised by these tests:
+ * - `routes/theme.routes.ts` → `ThemeController` (create/list)
+ * - `authMiddleware` for API key validation and request binding
+ * - `ThemeService` business rules: field normalization, validation, persistence
+ * - `supabaseClient` (mocked) for storage/DB table ops; `resetMockTables()` controls shared state
+ * - `logger` (`info`/`error`) instrumentation across middleware and controllers
+ *
+ * Equivalence Partitioning Map
  * - Authorization header (`Bearer <apiKey>`)
  *   - P1 Valid: Proper `Bearer <validKey>` → 200/201
  *   - P2 Invalid: Missing/malformed header → 401
@@ -12,7 +19,7 @@
  * - Create body (`name`, `tags`, optional `inspirations`)
  *   - C1 Valid: `name` non-empty trimmed AND `tags` non-empty array → 201
  *   - C2 Invalid: Missing/empty/whitespace `name` OR `tags` missing/not array/empty → 400
- *   - C3 Boundary: Minimal name `"a"` with valid `tags` → 201
+ *   - C3 Boundary: Minimal name "a" with valid `tags` → 201
  *   - C4 Atypical: Very long/Unicode `name` with valid `tags` → 201
  *   - C5 Atypical: `inspirations` missing or not array → normalized to [] (still 201)
  *
@@ -58,6 +65,7 @@ describe("Theme API", () => {
 
   describe("POST /api/themes/create", () => {
     // Valid (P1, C1)
+    // Integrations: authMiddleware (P1), ThemeController.create, ThemeService.create, supabaseClient (mock), logger.info
     it("should create a new theme for authenticated client (P1, C1)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -77,6 +85,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P1, C2) — missing name
+    // Integrations: authMiddleware (P1), ThemeController.create validation branch, ThemeService rejects, logger.info
     it("should fail to create a theme with missing name (P1, C2)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -92,6 +101,7 @@ describe("Theme API", () => {
     });
 
     // Boundary (P1, C3) — minimal name with valid tags
+    // Integrations: authMiddleware (P1), ThemeController.create, normalization path; supabaseClient insert
     it("should create with minimal boundary name 'a' (P1, C3)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -101,6 +111,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P1, C2) — whitespace-only name
+    // Integrations: ThemeController.create validation trim → invalid, logger.error likely
     it("should reject whitespace-only name (P1, C2)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -112,6 +123,7 @@ describe("Theme API", () => {
     });
 
     // Atypical valid (P1, C1/T1) — padded whitespace name trims to valid (requires tags)
+    // Integrations: normalization trims name (T1) then valid create; supabaseClient insert; logger.info
     it("should accept name with surrounding whitespace (P1, C1/T1)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -121,6 +133,7 @@ describe("Theme API", () => {
     });
 
     // Atypical valid (P1, C1/T2) — Unicode/non-Latin/emoji name (requires tags)
+    // Integrations: Unicode handling in validation (T2); ThemeService allows; supabase insert; logger.info
     it("should accept Unicode name (emoji/non-Latin) (P1, C1/T2)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -130,6 +143,7 @@ describe("Theme API", () => {
     });
 
     // Atypical valid (P1, C4) — very long name (requires tags)
+    // Integrations: length-agnostic acceptance (C4); storage/db insert; logger.info
     it("should accept very long name (P1, C4)", async () => {
       const longName = "Theme-" + "x".repeat(500);
       const res = await request(app)
@@ -140,6 +154,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P1, C2) — missing tags array
+    // Integrations: ThemeController.create validates tags; rejects; logger.error
     it("should reject when tags are missing (P1, C2)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -150,6 +165,7 @@ describe("Theme API", () => {
     });
 
     // Atypical valid (P1, C5) — inspirations missing or not array is normalized to []
+    // Integrations: ThemeService normalizes `inspirations` → [] (C5); supabase insert; logger.info
     it("should accept missing or non-array inspirations (P1, C5)", async () => {
       const res = await request(app)
         .post("/api/themes/create")
@@ -160,6 +176,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P1, C2) — tags not array or empty
+    // Integrations: validation for `tags` emptiness/type; rejects; logger.error
     it("should reject when tags are empty or not array (P1, C2)", async () => {
       const cases = [
         { name: "Empty Tags", tags: [] },
@@ -178,6 +195,7 @@ describe("Theme API", () => {
 
   describe("GET /api/themes", () => {
     // Valid (P1)
+    // Integrations: authMiddleware (P1), ThemeController.list, supabaseClient query for bound client, logger.info
     it("should list all themes for the authenticated client (P1)", async () => {
       const res = await request(app)
         .get("/api/themes")
@@ -190,6 +208,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P2) missing header
+    // Integrations: authMiddleware rejects missing header; controller not invoked; logger.error
     it("should return 401 when API key is missing (P2)", async () => {
       const res = await request(app).get("/api/themes");
 
@@ -199,6 +218,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P2) malformed header
+    // Integrations: authMiddleware rejects malformed scheme; controller not invoked; logger.error
     it("should return 401 for malformed Authorization header (P2)", async () => {
       const res = await request(app)
         .get("/api/themes")
@@ -208,6 +228,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P3) — unknown/invalid key (typically 403)
+    // Integrations: authMiddleware verifies signature and rejects unknown key; controller may short-circuit; logger.error
     it("should return 403 for invalid API key (P3)", async () => {
       const res = await request(app)
         .get("/api/themes")
@@ -216,6 +237,7 @@ describe("Theme API", () => {
     });
 
     // Boundary (P4) empty token
+    // Integrations: authMiddleware treats empty token as missing; logger.error
     it("should return 401 when Bearer token is empty (P4)", async () => {
       const res = await request(app)
         .get("/api/themes")
@@ -225,6 +247,7 @@ describe("Theme API", () => {
     });
 
     // Invalid (P3/T3) — Authorization with extra spaces (typically 403)
+    // Integrations: header parsing with extra spaces (T3) typically invalid; logger.error
     it("should reject Authorization with extra spaces (P3/T3)", async () => {
       const res = await request(app)
         .get("/api/themes")

@@ -100,6 +100,11 @@ export class ContentGenerationPipeline {
       media_type = "text",
     } = input;
 
+    // Basic input validation
+    if (typeof prompt !== "string" || prompt.trim().length === 0) {
+      throw new Error("Invalid prompt: must be a non-empty string");
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Stage 1: Parallel analysis (Theme + RAG are independent)
     // ─────────────────────────────────────────────────────────────────────────
@@ -114,7 +119,9 @@ export class ContentGenerationPipeline {
       `ContentGenerationPipeline: Theme analysis complete - mood: ${themeAnalysis.visual_mood}, brand strength: ${themeAnalysis.brand_strength}`
     );
     logger.info(
-      `ContentGenerationPipeline: RAG complete - ${ragContext.relevantContents.length} similar items, avg similarity: ${ragContext.avgSimilarity.toFixed(3)}`
+      `ContentGenerationPipeline: RAG complete - ${
+        ragContext.relevantContents.length
+      } similar items, avg similarity: ${ragContext.avgSimilarity.toFixed(3)}`
     );
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -158,6 +165,38 @@ export class ContentGenerationPipeline {
       media_type,
     });
 
+    // If no variants were generated, assemble minimal metadata and return early
+    if (!rawVariants || rawVariants.length === 0) {
+      const diversityEmpty =
+        await ContentAnalysisService.analyzeDiversitySemantic([]);
+
+      return {
+        variants: [],
+        metadata: {
+          themeAnalysis,
+          ragSimilarity: ragContext.avgSimilarity,
+          ragContentCount: ragContext.relevantContents.length,
+          enhancedPrompt,
+          predictedQuality,
+          averageQuality: 0,
+          averageCompositeScore: 0,
+          diversity: diversityEmpty,
+          generationTimestamp: new Date().toISOString(),
+          pipelineStages: [
+            "theme_analysis",
+            "rag_retrieval",
+            "prompt_enhancement",
+            "quality_prediction",
+            "ai_generation",
+            "quality_scoring",
+            "content_analysis",
+            "diversity_analysis",
+            "variant_ranking",
+          ],
+        },
+      };
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Stage 5: Basic quality scoring
     // ─────────────────────────────────────────────────────────────────────────
@@ -181,9 +220,13 @@ export class ContentGenerationPipeline {
     // ─────────────────────────────────────────────────────────────────────────
     // Stage 7: Semantic diversity analysis (detect duplicates using embeddings)
     // ─────────────────────────────────────────────────────────────────────────
-    logger.info("ContentGenerationPipeline: Stage 7 - Semantic diversity analysis");
+    logger.info(
+      "ContentGenerationPipeline: Stage 7 - Semantic diversity analysis"
+    );
 
-    const diversity = await ContentAnalysisService.analyzeDiversitySemantic(rawVariants);
+    const diversity = await ContentAnalysisService.analyzeDiversitySemantic(
+      rawVariants
+    );
 
     logger.info(
       `ContentGenerationPipeline: Diversity score: ${diversity.diversity_score}, duplicates: ${diversity.duplicate_pairs.length}`
@@ -200,8 +243,17 @@ export class ContentGenerationPipeline {
       qualityScores
     );
 
+    // Normalize rankings length to match generated variants to avoid truncation/expansion issues
+    const normalizedRankings =
+      Array.isArray(rankings) && rankings.length === rawVariants.length
+        ? rankings
+        : rawVariants.map((_, idx) => ({
+            index: idx,
+            compositeScore: rankings[idx]?.compositeScore ?? 0,
+          }));
+
     // Build final variants array sorted by rank
-    const variantsWithScores: VariantWithScore[] = rankings.map(
+    const variantsWithScores: VariantWithScore[] = normalizedRankings.map(
       (ranking, rank) => ({
         content: rawVariants[ranking.index],
         qualityScore: qualityScores[ranking.index],
@@ -220,10 +272,10 @@ export class ContentGenerationPipeline {
         : 0;
 
     const averageCompositeScore =
-      rankings.length > 0
+      normalizedRankings.length > 0
         ? Math.round(
-            rankings.reduce((sum, r) => sum + r.compositeScore, 0) /
-              rankings.length
+            normalizedRankings.reduce((sum, r) => sum + r.compositeScore, 0) /
+              normalizedRankings.length
           )
         : 0;
 
@@ -267,12 +319,17 @@ export class ContentGenerationPipeline {
    */
   private static async analyzeTheme(theme: Theme): Promise<ThemeAnalysis> {
     try {
-      return ThemeAnalysisService.analyzeTheme(theme);
+      return theme.analysis || ThemeAnalysisService.analyzeTheme(theme);
     } catch (error) {
       logger.error("ContentGenerationPipeline: Theme analysis failed", error);
       // Return minimal fallback analysis
       return {
-        color_palette: { primary: [], secondary: [], accent: [], mood: "neutral" },
+        color_palette: {
+          primary: [],
+          secondary: [],
+          accent: [],
+          mood: "neutral",
+        },
         style_score: 50,
         dominant_styles: [],
         visual_mood: "balanced",

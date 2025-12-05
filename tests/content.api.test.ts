@@ -1,16 +1,23 @@
 /**
- * Content API - Equivalence partitions and test mapping
+ * Integration Scope + Equivalence Partitions (API: Content Listing)
  *
- * Unit under test:
- * - GET /api/contents/:project_id
+ * Internal integrations exercised by these tests:
+ * - `routes/content.routes.ts` → `ContentController` (list by project)
+ * - `authMiddleware` for API key validation and client binding
+ * - `ProjectController`/`ProjectService` indirectly via project creation in setup
+ * - `ContentService` for querying persisted content by `project_id`
+ * - `supabaseClient` (mocked) for DB reads; `resetMockTables()` controls shared state
+ * - `logger` (`info`/`error`) for request lifecycle instrumentation
  *
- * Partitions:
- * - C1 (Valid): Correct API key + valid project_id -> 200 with array.
- * - C2 (Invalid): Missing API key -> 401.
- * - C3 (Invalid): Malformed Authorization header (not Bearer) -> 401.
- * - C4 (Atypical): Valid auth, project has no contents -> 200 with empty array/204.
- * - C5 (Invalid - boundary): project_id missing in route -> 404.
- * - C6 (Boundary): unusual project_id (spaces/long) -> route still matches.
+ * External integrations: none (all database calls mocked via `__mocks__/supabase`).
+ *
+ * Equivalence Partitions
+ * - C1 Valid: Correct API key + valid `project_id` → 200 with array (or 500 if environment/credentials error)
+ * - C2 Invalid: Missing API key → 401
+ * - C3 Invalid: Malformed Authorization header (not Bearer) → 401
+ * - C4 Atypical: Valid auth, project has no contents → 200 with empty array or 204
+ * - C5 Invalid/Boundary: `project_id` missing in route → 404
+ * - C6 Boundary: Unusual `project_id` (spaces/long) → route still matches; controller handles
  */
 
 // Ensure GCP project is set to avoid VertexAI init errors in imported app
@@ -57,6 +64,7 @@ describe("Content API", () => {
   });
 
   // Valid input (C1): Authorization Bearer key present + valid project_id
+  // Integrations: authMiddleware (valid), ContentController.list, ContentService query, supabaseClient (mock), logger.info
   it("should list contents for a valid project (C1)", async () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
@@ -74,6 +82,7 @@ describe("Content API", () => {
   });
 
   // Invalid input (C5 - boundary): route path missing project_id
+  // Integrations: router returns 404; controller not invoked
   it("should fail if project_id is missing (C5)", async () => {
     const res = await request(app)
       .get("/api/contents/")
@@ -83,6 +92,7 @@ describe("Content API", () => {
   });
 
   // Invalid input (C2): Missing Authorization header
+  // Integrations: authMiddleware rejects; controller short-circuits; logger.error
   it("should return 401 if no API key provided (C2)", async () => {
     const res = await request(app).get(`/api/contents/${projectId}`);
 
@@ -93,6 +103,7 @@ describe("Content API", () => {
   });
 
   // Invalid input (C3): Authorization header malformed (no Bearer prefix)
+  // Integrations: authMiddleware rejects malformed scheme; controller not invoked
   it("should return 401 for malformed Authorization header (C3)", async () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
@@ -101,6 +112,7 @@ describe("Content API", () => {
   });
 
   // Atypical input (C4): Valid auth; project has zero contents
+  // Integrations: controller returns 200/204 with empty array; logger.info
   it("should handle atypical valid input (empty project with no contents) (C4)", async () => {
     const res = await request(app)
       .get(`/api/contents/${projectId}`)
@@ -110,6 +122,7 @@ describe("Content API", () => {
   });
 
   // Boundary input (C6): Unusual project_id format (spaces/long) still handled
+  // Integrations: route param decoding; controller attempts list; logger.info
   it("should handle boundary project_id formats (C6)", async () => {
     const weirdId = "project with spaces and 123";
     const res = await request(app)
