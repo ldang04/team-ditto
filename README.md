@@ -804,6 +804,10 @@ There are some comments that were done with the assistance of Copilot. Prompts w
 - **Prompts:** "Clarify that /api/clients/create is a public endpoint used to obtain API keys"
 - **What AI Generated:** "How to get an API key" section with step-by-step instructions
 
+### AI Citation for Client Application (LinkLaunch):
+- **Files:** `client/src/pages/*.tsx`, `client/src/components/*.tsx`, `client/src/types/index.ts`, `client/README.md`, `README.md` (Client Application section)
+- **Use Case:** Built the LinkLaunch React client application with Cursor AI assistance (component scaffolding + code-complete)
+- **What AI Generated:** React components for LinkedIn post generation, validation, and preview; content grouping logic; validation UI with metrics; API integration hooks; TypeScript types; formatting client documentation and diagrams (including multi-client architecture)
 
 ### Overall Statement For Use of AI:
 
