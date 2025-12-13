@@ -165,3 +165,36 @@ export interface ValidationResponse {
   timestamp: string;
 }
 
+// Ranking Types
+export interface RankingRequest {
+  project_id?: string;
+  content_ids?: string[];
+  limit?: number;
+}
+
+export interface RankedContent {
+  rank: number;
+  content_id: string;
+  overall_score: number;
+  brand_consistency_score: number;
+  quality_score: number;
+  text_content?: string;
+  media_type: string;
+  media_url?: string;
+  created_at?: string;
+  recommendation: string;
+}
+
+export interface RankingSummary {
+  total_ranked: number;
+  top_score: number;
+  average_score: number;
+  project_id: string;
+  theme_id: string;
+}
+
+export interface RankingResponse {
+  ranked_content: RankedContent[];
+  summary: RankingSummary;
+}
+

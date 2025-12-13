@@ -1,13 +1,17 @@
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
-import { ArrowLeft, FileText, Image as ImageIcon, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, FileText, Image as ImageIcon, Loader2, Send, ArrowUpDown } from 'lucide-react';
 import type { Project, Content } from '../types';
 import LinkedInPreview from '../components/LinkedInPreview';
+import { useState } from 'react';
+
+type SortOption = 'default' | 'best-worst' | 'worst-best';
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [sortOption, setSortOption] = useState<SortOption>('default');
 
   const { data: projectData, isLoading: projectLoading } = useQuery({
     queryKey: ['projects', id],
@@ -27,6 +31,11 @@ export default function ProjectDetailPage() {
 
   const project = projectData as Project | undefined;
   const contents = contentData?.data || [];
+
+  // Ranking mutation
+  const rankMutation = useMutation({
+    mutationFn: () => apiClient.rankContent({ project_id: id! }),
+  });
 
   // Helper function to identify overlay text items
   // Overlay text is short text content created right before an image
@@ -165,7 +174,48 @@ export default function ProjectDetailPage() {
   );
   const imageContents = allImageContents;
   
-  const groupedContent = groupContentByTimeWindow(contents);
+  // Handle sorting
+  const handleSortChange = async (newSort: SortOption) => {
+    setSortOption(newSort);
+    if (newSort === 'default') {
+      return; // Use default grouping
+    }
+    
+    // Fetch rankings only if not already loaded
+    if (!rankMutation.data && !rankMutation.isPending) {
+      try {
+        await rankMutation.mutateAsync();
+      } catch (error) {
+        console.error('Failed to rank content:', error);
+      }
+    }
+  };
+
+  // Get sorted content based on ranking
+  const getSortedGroupedContent = () => {
+    // Always group first to maintain text+image pairs
+    const grouped = groupContentByTimeWindow(contents);
+    
+    if (sortOption === 'default' || !rankMutation.data?.data) {
+      return grouped;
+    }
+
+    const rankedContent = rankMutation.data.data.ranked_content;
+    const rankedContentMap = new Map(
+      rankedContent.map(item => [item.content_id, item])
+    );
+
+    // Sort groups by the rank of their primary text content
+    return [...grouped].sort((a, b) => {
+      const aRank = rankedContentMap.get(a.text.id || '')?.rank || Infinity;
+      const bRank = rankedContentMap.get(b.text.id || '')?.rank || Infinity;
+      // For worst-best, higher rank numbers (worse) come first
+      // For best-worst, lower rank numbers (better) come first
+      return sortOption === 'worst-best' ? bRank - aRank : aRank - bRank;
+    });
+  };
+
+  const groupedContent = getSortedGroupedContent();
 
   // Regenerate an entire post (text + image) for a given group
   const handleRegeneratePost = async (group: { text: Content; image?: Content }) => {
@@ -307,7 +357,25 @@ export default function ProjectDetailPage() {
         </div>
       ) : groupedContent.length > 0 ? (
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">LinkedIn Drafts</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">LinkedIn Drafts</h2>
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-gray-500" />
+              <select
+                value={sortOption}
+                onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                disabled={rankMutation.isPending}
+                className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="default">Default (Newest First)</option>
+                <option value="best-worst">Best to Worst</option>
+                <option value="worst-best">Worst to Best</option>
+              </select>
+              {rankMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {groupedContent.map((group, index) => (
               <LinkedInPreview
