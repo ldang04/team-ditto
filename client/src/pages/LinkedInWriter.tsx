@@ -51,10 +51,11 @@ export default function LinkedInWriter() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hi! I can help you write your LinkedIn post. Tell me what you want to write about, or ask me to generate an image.',
+      content: 'Hi! I can help you write your LinkedIn post. Tell me what you want to write about and I\'ll generate both a caption and image for you!',
     },
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationMode, setGenerationMode] = useState<'both' | 'text' | 'image'>('both');
 
   // Image input state
   const [showImageInput, setShowImageInput] = useState(false);
@@ -108,12 +109,62 @@ export default function LinkedInWriter() {
     setChatInput('');
     setIsGenerating(true);
 
-    // Detect if user wants an image
-    const wantsImage = /image|picture|photo|visual|graphic|generate.*image|create.*image/i.test(prompt);
-
     try {
-      if (wantsImage) {
-        // Generate image
+      if (generationMode === 'both') {
+        // Generate both text and image
+        // 1. Generate text first
+        const textResponse = await apiClient.generateText({
+          project_id: selectedProjectId,
+          prompt: `Write a professional LinkedIn post about: ${prompt}.
+            Make it engaging and authentic. Use short paragraphs.
+            Keep it under 1300 characters. No hashtags.`,
+          variantCount: 1,
+        });
+
+        const content = textResponse.data?.variants?.[0]?.generated_content || '';
+        if (content) {
+          setPostContent(content);
+          setValidation(null);
+        }
+
+        // 2. Generate headline from the new text
+        let overlayText = '';
+        if (content) {
+          try {
+            const headlineResponse = await apiClient.generateText({
+              project_id: selectedProjectId,
+              prompt: `Write a single powerful headline (max 8 words) for: "${content.slice(0, 300)}"`,
+              variantCount: 1,
+            });
+            overlayText = headlineResponse.data?.variants?.[0]?.generated_content?.trim() || '';
+          } catch (e) {
+            console.error('Failed to generate headline:', e);
+          }
+        }
+
+        // 3. Generate image
+        const imageResponse = await apiClient.generateImage({
+          project_id: selectedProjectId,
+          prompt: prompt,
+          variantCount: 1,
+          aspectRatio: '1:1',
+          overlay_text: overlayText,
+        });
+
+        const url = imageResponse.data?.variants?.[0]?.image_url;
+        if (url) {
+          setImageUrl(url);
+        }
+
+        setChatMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Done! I\'ve created your post with both caption and image. Feel free to edit, then validate when ready.',
+          type: 'text',
+        }]);
+
+      } else if (generationMode === 'image') {
+        // Generate image only
         let overlayText = '';
         if (postContent.trim()) {
           try {
@@ -148,7 +199,7 @@ export default function LinkedInWriter() {
           }]);
         }
       } else {
-        // Generate text
+        // Generate text only
         const response = await apiClient.generateText({
           project_id: selectedProjectId,
           prompt: `Write a professional LinkedIn post about: ${prompt}.
@@ -169,6 +220,9 @@ export default function LinkedInWriter() {
           }]);
         }
       }
+
+      // Reset to default mode after generation
+      setGenerationMode('both');
     } catch (err) {
       console.error('Generation failed:', err);
       setChatMessages(prev => [...prev, {
@@ -176,6 +230,7 @@ export default function LinkedInWriter() {
         role: 'assistant',
         content: 'Sorry, something went wrong. Please try again.',
       }]);
+      setGenerationMode('both');
     } finally {
       setIsGenerating(false);
     }
@@ -701,18 +756,24 @@ export default function LinkedInWriter() {
           {/* Quick actions */}
           <div className="mt-3 flex gap-2">
             <button
-              onClick={() => setChatInput('Write a post about ')}
+              onClick={() => {
+                setGenerationMode('text');
+                setChatInput('Write a post about ');
+              }}
               className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
             >
               <MessageSquare className="h-3 w-3 inline mr-1" />
-              Write post
+              Text only
             </button>
             <button
-              onClick={() => setChatInput('Generate an image for ')}
+              onClick={() => {
+                setGenerationMode('image');
+                setChatInput('Generate an image for ');
+              }}
               className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
             >
               <Image className="h-3 w-3 inline mr-1" />
-              Add image
+              Image only
             </button>
           </div>
         </div>
