@@ -11,6 +11,8 @@ import type {
   ImageGenerationResponse,
   ValidationRequest,
   ValidationResponse,
+  RankingRequest,
+  RankingResponse,
 } from '../types';
 
 class ApiClient {
@@ -133,6 +135,15 @@ class ApiClient {
   async validateContent(request: ValidationRequest): Promise<ApiResponse<ValidationResponse>> {
     const response = await this.client.post<ApiResponse<ValidationResponse>>(
       '/validate',
+      request
+    );
+    return response.data;
+  }
+
+  // Ranking
+  async rankContent(request: RankingRequest): Promise<ApiResponse<RankingResponse>> {
+    const response = await this.client.post<ApiResponse<RankingResponse>>(
+      '/rank',
       request
     );
     return response.data;
