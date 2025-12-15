@@ -293,6 +293,137 @@ describe("ImageGenerationController.generate - validations and flow", () => {
     expect(callArgs.overlayText).toBe(overlay_text);
     expect(res.status).toHaveBeenCalledWith(201);
   });
+
+  // RAG image references: uses past images as visual references when no user input_images
+  it("uses RAG-retrieved images as visual references when no user input_images provided", async () => {
+    req.body = {
+      project_id: "p1",
+      prompt: "A prompt",
+      variantCount: 1,
+      aspectRatio: "1:1",
+      // No input_images provided
+    };
+
+    const project = { id: "p1", name: "Project", description: "Desc" } as any;
+    const theme = { inspirations: ["x"], tags: ["t"], analysis: {} } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    // RAG returns image content with base64 data (must be > 100 chars to pass filter)
+    const ragImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    jest.spyOn(RAGService, "performRAG").mockResolvedValue({
+      avgSimilarity: 0.8,
+      relevantContents: [
+        {
+          media_type: "image",
+          text_content: ragImageBase64,
+          prompt: "past brand banner"
+        },
+        {
+          media_type: "image",
+          text_content: ragImageBase64,
+          prompt: "past product image"
+        },
+      ],
+      similarDescriptions: [],
+    } as any);
+
+    jest.spyOn(ThemeAnalysisService, "analyzeTheme").mockReturnValue({} as any);
+    jest
+      .spyOn(PromptEnhancementService, "enhancePromtWithRAG")
+      .mockReturnValue("enhanced");
+    jest
+      .spyOn(PromptEnhancementService, "buildBrandedPrompt")
+      .mockReturnValue({ prompt: "branded", negativePrompt: "neg" } as any);
+
+    const genSpy = jest
+      .spyOn(ImageGenerationService, "generateImages")
+      .mockResolvedValue([{ imageData: "b64", mimeType: "image/png" }] as any);
+
+    jest
+      .spyOn(ImageGenerationController as any, "saveGeneratedImages")
+      .mockResolvedValue([{ content_id: "c1", image_url: "u1" }] as any);
+
+    jest
+      .spyOn(QualityScoringService, "scorePromptQuality")
+      .mockReturnValue(80 as any);
+    jest
+      .spyOn(PromptEnhancementService, "scoreRagQuality")
+      .mockReturnValue(70 as any);
+
+    await ImageGenerationController.generate(req, res);
+
+    expect(genSpy).toHaveBeenCalled();
+    const callArgs = genSpy.mock.calls[0][0];
+
+    // Verify RAG images are passed as inputImages
+    expect(callArgs.inputImages).toBeDefined();
+    expect(callArgs.inputImages!).toHaveLength(2);
+    expect(callArgs.inputImages![0].data).toBe(ragImageBase64);
+    expect(callArgs.inputImages![0].mimeType).toBe("image/png");
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  // RAG image references: user input_images take priority over RAG images
+  it("uses user input_images over RAG-retrieved images when both available", async () => {
+    const userInputImages = [{ data: "user-image-base64", mimeType: "image/jpeg" }];
+    req.body = {
+      project_id: "p1",
+      prompt: "A prompt",
+      variantCount: 1,
+      aspectRatio: "1:1",
+      input_images: userInputImages,
+    };
+
+    const project = { id: "p1", name: "Project", description: "Desc" } as any;
+    const theme = { inspirations: ["x"], tags: ["t"], analysis: {} } as any;
+    jest
+      .spyOn(ProjectThemeService, "getProjectAndTheme")
+      .mockResolvedValue({ project, theme } as any);
+
+    // RAG also returns image content (with valid base64 > 100 chars)
+    const ragImageData = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    jest.spyOn(RAGService, "performRAG").mockResolvedValue({
+      avgSimilarity: 0.8,
+      relevantContents: [
+        { media_type: "image", text_content: ragImageData, prompt: "past image" },
+      ],
+      similarDescriptions: [],
+    } as any);
+
+    jest.spyOn(ThemeAnalysisService, "analyzeTheme").mockReturnValue({} as any);
+    jest
+      .spyOn(PromptEnhancementService, "enhancePromtWithRAG")
+      .mockReturnValue("enhanced");
+    jest
+      .spyOn(PromptEnhancementService, "buildBrandedPrompt")
+      .mockReturnValue({ prompt: "branded", negativePrompt: "neg" } as any);
+
+    const genSpy = jest
+      .spyOn(ImageGenerationService, "generateImages")
+      .mockResolvedValue([{ imageData: "b64", mimeType: "image/png" }] as any);
+
+    jest
+      .spyOn(ImageGenerationController as any, "saveGeneratedImages")
+      .mockResolvedValue([{ content_id: "c1", image_url: "u1" }] as any);
+
+    jest
+      .spyOn(QualityScoringService, "scorePromptQuality")
+      .mockReturnValue(80 as any);
+    jest
+      .spyOn(PromptEnhancementService, "scoreRagQuality")
+      .mockReturnValue(70 as any);
+
+    await ImageGenerationController.generate(req, res);
+
+    expect(genSpy).toHaveBeenCalled();
+    const callArgs = genSpy.mock.calls[0][0];
+
+    // User input_images should take priority
+    expect(callArgs.inputImages).toEqual(userInputImages);
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
 });
 
 describe("ImageGenerationController.saveGeneratedImages - persistence cases", () => {

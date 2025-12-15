@@ -61,7 +61,11 @@ describe("PromptEnhancementService (partitioned)", () => {
 
     const ragWithSimilar = {
       avgSimilarity: 0.8,
-      similarDescriptions: ["a", "b"],
+      similarDescriptions: ["professional tech banner design", "modern card layout"],
+      relevantContents: [
+        { media_type: "text", text_content: "Excited to share our latest product launch! This innovative solution transforms how teams collaborate." },
+        { media_type: "text", text_content: "Behind every great company is a team that believes in the mission. Here's what drives us forward." },
+      ],
     } as any;
     const ragEmpty = { avgSimilarity: 0.1, similarDescriptions: [] } as any;
 
@@ -75,7 +79,7 @@ describe("PromptEnhancementService (partitioned)", () => {
       );
       expect(out).toContain(userPrompt);
       expect(out).toMatch(
-        /drawing inspiration from previous successful content styles/
+        /matching the style of previous successful content:/
       );
       expect(out).toMatch(/featuring/);
       expect(out).toMatch(/with a warm atmosphere/);
@@ -90,7 +94,7 @@ describe("PromptEnhancementService (partitioned)", () => {
         baseTheme
       );
       expect(out).not.toMatch(
-        /drawing inspiration from previous successful content styles/
+        /matching the style of previous successful content:/
       );
       expect(out).toMatch(/featuring/);
     });

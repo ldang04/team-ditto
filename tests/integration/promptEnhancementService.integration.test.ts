@@ -38,7 +38,10 @@ describe("Prompt Enhancement Service Integration", () => {
    * Mock RAG context data used across tests.
    */
   const mockRagContext: RAGContext = {
-    relevantContents: [],
+    relevantContents: [
+      { media_type: "text", text_content: "Thrilled to announce our Q4 results! The team exceeded all expectations with record-breaking performance." } as any,
+      { media_type: "text", text_content: "Leadership isn't about being in charge. It's about taking care of those in your charge." } as any,
+    ],
     similarDescriptions: [
       "bright banner with tech elements",
       "modern card layout",
@@ -65,7 +68,7 @@ describe("Prompt Enhancement Service Integration", () => {
     expect(enhanced.toLowerCase()).toContain("vibrant and energetic");
     expect(enhanced.toLowerCase()).toContain("minimalist");
     expect(enhanced.toLowerCase()).toContain("modern");
-    expect(enhanced.toLowerCase()).toContain("previous successful content");
+    expect(enhanced.toLowerCase()).toContain("matching the style of previous successful content:");
     // Color palette should be included
     expect(enhanced.toLowerCase()).toContain("ff6b6b");
   });

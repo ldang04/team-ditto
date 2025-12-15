@@ -151,6 +151,36 @@ export const ImageGenerationController = {
           targetAudience: target_audience,
         });
 
+      // STEP 4.5: Extract similar images from RAG for visual reference
+      // Use past brand images as style references for Imagen (real image RAG!)
+      logger.info("STEP 4.5: Extracting similar images for visual reference");
+      const ragImageReferences = ragContext.relevantContents
+        .filter(
+          (content) =>
+            content.media_type === "image" &&
+            content.text_content &&
+            content.text_content.length > 100 // Ensure it's actual base64 data
+        )
+        .slice(0, 2) // Limit to 2 reference images
+        .map((content) => ({
+          data: content.text_content,
+          mimeType: "image/png",
+        }));
+
+      if (ragImageReferences.length > 0) {
+        logger.info(
+          `ImageGenerationController: Using ${ragImageReferences.length} past images as visual references`
+        );
+      }
+
+      // Merge user-provided images with RAG-retrieved reference images
+      const allInputImages =
+        input_images.length > 0
+          ? input_images // User-provided takes priority
+          : ragImageReferences.length > 0
+            ? ragImageReferences // Fall back to RAG-retrieved images
+            : undefined;
+
       // STEP 5: Generate images
       logger.info("STEP 5: Generating images");
       const generatedImages = await ImageGenerationService.generateImages({
@@ -159,7 +189,7 @@ export const ImageGenerationController = {
         aspectRatio: validatedAspectRatio as any,
         numberOfImages: validatedVariantCount,
         guidanceScale: 15,
-        inputImages: input_images.length > 0 ? input_images : undefined,
+        inputImages: allInputImages,
         overlayText: overlay_text || undefined,
       });
 
