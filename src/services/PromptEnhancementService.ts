@@ -31,11 +31,40 @@ export class PromptEnhancementService {
 
     const enhancements: string[] = [];
 
-    // Add RAG insights
-    if (ragContext.similarDescriptions.length > 0) {
-      enhancements.push(
-        "drawing inspiration from previous successful content styles"
-      );
+    // Add RAG insights 
+    if (ragContext.relevantContents && ragContext.relevantContents.length > 0) {
+      // Extract useful text from past content (handle both text and image content)
+      const topExamples = ragContext.relevantContents
+        .slice(0, 2)
+        .map((content) => {
+          // For text content: use actual generated text
+          // For image content: use the prompt (text_content contains base64 data)
+          if (content.media_type === "text" && content.text_content) {
+            return content.text_content;
+          }
+          // For images or fallback: use enhanced_prompt or prompt
+          return content.enhanced_prompt || content.prompt || "";
+        })
+        .filter((text) => text.length > 20)
+        .map((text) => text.slice(0, 200)); // Truncate to avoid prompt bloat
+
+      if (topExamples.length > 0) {
+        enhancements.push(
+          `matching the style of previous successful content: "${topExamples.join('" and "')}"`
+        );
+      }
+    } else if (ragContext.similarDescriptions.length > 0) {
+      // Fallback to prompts if no content available
+      const topPrompts = ragContext.similarDescriptions
+        .slice(0, 2)
+        .map((desc) => desc.slice(0, 150))
+        .filter((desc) => desc.length > 10);
+
+      if (topPrompts.length > 0) {
+        enhancements.push(
+          `drawing inspiration from previous brand prompts: "${topPrompts.join('" and "')}"`
+        );
+      }
     }
 
     // Add color palette: include primary, secondary and accent colors
